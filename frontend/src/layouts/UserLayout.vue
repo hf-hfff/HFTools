@@ -1,32 +1,41 @@
 <script setup lang="ts">
-// 用户端整体布局：顶部导航 + 内容区 + 页脚
+// 用户端整体布局：固定顶栏（毛玻璃）+ 内容区 + 页脚
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
+
+/** 顶栏中部导航锚点 */
+const NAV_SECTIONS = [
+  { href: '#cat-photography', label: '摄影' },
+  { href: '#cat-ai-eng', label: 'AI 工程' },
+  { href: '#cat-job', label: '求职' },
+];
 </script>
 
 <template>
-  <el-container class="user-layout">
-    <el-header class="user-header">
-      <div class="header-inner">
-        <div class="brand" @click="router.push('/')">
-          <span class="brand-mark">HF</span>
-          <span class="brand-name">HFTools</span>
-          <span class="brand-divider"></span>
-          <span class="brand-sub">个人 AI 工具箱</span>
-        </div>
-        <div class="header-actions">
-          <button class="admin-link" @click="router.push('/admin')">管理平台</button>
-        </div>
+  <div class="user-layout">
+    <header class="topbar">
+      <div class="brand" @click="router.push('/')">
+        <span class="brand-mark">HF</span>
+        <span class="brand-name">HFTools</span>
       </div>
-    </el-header>
-    <el-main class="user-main">
+      <nav class="topnav">
+        <a v-for="item in NAV_SECTIONS" :key="item.href" :href="item.href" class="topnav-link">
+          {{ item.label }}
+        </a>
+      </nav>
+      <button class="pill pill-nav" @click="router.push('/admin')">管理平台</button>
+    </header>
+
+    <main class="user-main">
       <router-view />
-    </el-main>
-    <el-footer class="user-footer">
-      HFTools · 本地部署 · 仅供个人使用
-    </el-footer>
-  </el-container>
+    </main>
+
+    <footer class="user-footer">
+      <p class="foot-meta">HFTOOLS · LOCAL-FIRST · PERSONAL AI TOOLBOX</p>
+      <p class="foot-sub">本地部署 · 仅供个人使用</p>
+    </footer>
+  </div>
 </template>
 
 <style scoped>
@@ -36,29 +45,24 @@ const router = useRouter();
   flex-direction: column;
 }
 
-.user-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  height: 60px;
-  /* 半透明纸色 + 毛玻璃，与点阵底纹理融合 */
-  background: rgba(247, 247, 245, 0.86);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--border);
-  padding: 0 24px;
-}
-
-.header-inner {
-  max-width: 1080px;
-  margin: 0 auto;
-  height: 100%;
+/* ===== 顶栏：固定 + 毛玻璃（源 topbar 实况）===== */
+.topbar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 50;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  height: 64px;
+  padding: 0 clamp(20px, 4vw, 44px);
+  background: rgba(5, 5, 5, 0.66);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .brand {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 10px;
   cursor: pointer;
@@ -68,63 +72,85 @@ const router = useRouter();
 .brand-mark {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 8px;
-  background: var(--ink);
-  color: #fff;
+  background: #ffffff;
+  color: #050505;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.5px;
 }
 
 .brand-name {
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ink);
 }
 
-.brand-divider {
-  width: 1px;
-  height: 12px;
-  background: #d5d5cf;
+/* 中部锚点导航（源 links 居中实况） */
+.topnav {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  gap: clamp(20px, 2.4vw, 34px);
 }
 
-.brand-sub {
-  font-size: 12.5px;
-  color: var(--muted);
+.topnav-link {
+  font-size: 14.5px;
+  color: var(--nav);
+  text-decoration: none;
+  letter-spacing: 0.01em;
+  transition: color 0.25s var(--ease);
 }
 
-.admin-link {
-  border: none;
-  background: transparent;
-  font: inherit;
-  font-size: 13.5px;
-  color: var(--muted);
-  cursor: pointer;
-  padding: 6px 10px;
-  border-radius: 8px;
-  transition: color 0.15s ease, background 0.15s ease;
+.topnav-link:hover {
+  color: var(--ink);
 }
 
-.admin-link:hover {
-  color: var(--el-color-primary);
-  background: var(--el-color-primary-light-9);
-}
-
+/* ===== 内容区 ===== */
 .user-main {
   flex: 1;
-  max-width: 1080px;
   width: 100%;
-  margin: 0 auto;
-  padding: 24px;
+  padding-top: 64px;
 }
 
+/* ===== 页脚 ===== */
 .user-footer {
+  border-top: 1px solid var(--rule);
+  padding: 40px 24px 48px;
   text-align: center;
-  color: #b4b4ae;
-  font-size: 12px;
-  letter-spacing: 1px;
-  background: transparent;
+}
+
+.foot-meta {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.24em;
+  color: var(--strip);
+}
+
+.foot-sub {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  color: #5f5f5f;
+}
+
+/* ===== 入场动画（源规范时序）===== */
+@media (prefers-reduced-motion: no-preference) {
+  .brand {
+    animation: rise 0.8s var(--ease) both;
+  }
+
+  .topnav {
+    animation: riseNav 0.8s var(--ease) both;
+  }
+
+  .topbar .pill-nav {
+    animation: rise 0.8s var(--ease) both;
+  }
 }
 </style>

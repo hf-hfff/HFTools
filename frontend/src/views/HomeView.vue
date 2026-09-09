@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// 用户端首页：按分类分组展示已启用工具卡片
+// 用户端首页：电影感舞台首屏 + 按分类分组展示已启用工具卡片
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ArrowRight } from '@element-plus/icons-vue';
@@ -20,25 +20,26 @@ onMounted(async () => {
   }
 });
 
-/** 分类展示顺序与文案（配色由 .cat-* 类提供） */
-const CATEGORY_META: Array<{ key: ToolCategory; label: string; description: string }> = [
-  { key: 'photography', label: '摄影', description: '照片点评、AI 优化与摄影知识' },
-  { key: 'ai-eng', label: 'AI 工程', description: '提示词、AI 工具与开源热点' },
-  { key: 'job', label: '求职', description: 'JD 拆解、简历优化与公司背调' },
+/** 分类展示顺序与文案 */
+const CATEGORY_META: Array<{ key: ToolCategory; label: string; en: string; description: string }> = [
+  { key: 'photography', label: '摄影', en: 'Photography', description: '照片点评、AI 优化与摄影知识' },
+  { key: 'ai-eng', label: 'AI 工程', en: 'AI Engineering', description: '提示词、AI 工具与开源热点' },
+  { key: 'job', label: '求职', en: 'Career', description: 'JD 拆解、简历优化与公司背调' },
 ];
 
-/** 按分类分组的工具列表（过滤空分组），并附带序号 */
+/** 按分类分组的工具列表（过滤空分组） */
 const groupedTools = computed(() =>
-  CATEGORY_META.map(({ key, label, description }, index) => ({
+  CATEGORY_META.map(({ key, label, en, description }, index) => ({
     index,
     key,
     label,
+    en,
     description,
     tools: toolsStore.tools.filter((tool) => tool.category === key),
   })).filter((group) => group.tools.length > 0),
 );
 
-/** 已上线（非占位）工具数，用于首页统计 */
+/** 已上线（非占位）工具数 */
 const readyCount = computed(() => toolsStore.tools.filter((t) => t.status !== 'placeholder').length);
 
 /** 点击卡片进入工具页 */
@@ -49,38 +50,65 @@ function openTool(tool: Tool) {
 
 <template>
   <div v-loading="loading" class="home">
+    <!-- ===== 舞台首屏：中央光斑 + 电影感底部渐隐 ===== -->
     <section class="hero">
-      <p class="hero-eyebrow">HFTools · Personal AI Toolbox</p>
-      <h1 class="hero-title">常用 AI 工具，一箱收纳</h1>
-      <p class="hero-sub">
-        摄影 · AI 工程 · 求职 —— 本地运行，{{ toolsStore.tools.length }} 个工具已注册，{{ readyCount }} 个已上线
-      </p>
+      <div class="hero-inner">
+        <p class="hero-eyebrow">HFTools · Personal AI Toolbox</p>
+        <h1 class="headline">
+          <span>常用 AI 工具，</span>
+          <span>一箱收纳。</span>
+        </h1>
+        <p class="sub">
+          <span>摄影 · AI 工程 · 求职</span>
+          <span>本地运行 · {{ toolsStore.tools.length }} 个工具已注册 · {{ readyCount }} 个已上线</span>
+        </p>
+        <div class="actions">
+          <a href="#tools" class="pill">浏览全部工具</a>
+        </div>
+      </div>
+
+      <!-- 底部分类条（源 logos strip 构图） -->
+      <div class="strip">
+        <span v-for="group in groupedTools" :key="group.key" class="strip-item">
+          {{ group.label }}<i class="dot"></i>
+        </span>
+      </div>
     </section>
 
-    <section v-for="group in groupedTools" :key="group.key" class="category">
-      <div class="category-header">
-        <span class="category-index">{{ String(group.index + 1).padStart(2, '0') }}</span>
-        <h2 class="category-title">{{ group.label }}</h2>
-        <span class="category-desc">{{ group.description }}</span>
-        <span class="category-count">{{ group.tools.length }} 个工具</span>
-      </div>
-      <div class="card-grid">
-        <button
-          v-for="tool in group.tools"
-          :key="tool.id"
-          class="tool-card"
-          :class="`cat-${group.key}`"
-          @click="openTool(tool)"
-        >
-          <span class="tool-icon">{{ tool.icon }}</span>
-          <span class="tool-info">
-            <span class="tool-name">{{ tool.name }}</span>
-            <span v-if="tool.status === 'placeholder'" class="tool-status">开发中</span>
-          </span>
-          <el-icon class="tool-arrow"><ArrowRight /></el-icon>
-        </button>
-      </div>
-    </section>
+    <!-- ===== 工具分区 ===== -->
+    <div id="tools" class="sections">
+      <section
+        v-for="group in groupedTools"
+        :id="`cat-${group.key}`"
+        :key="group.key"
+        class="category"
+      >
+        <div class="eyebrow">
+          <span class="eyebrow-index">{{ String(group.index + 1).padStart(2, '0') }}</span>
+          <span class="eyebrow-en">{{ group.en }}</span>
+        </div>
+        <div class="category-header">
+          <h2 class="category-title">{{ group.label }}</h2>
+          <p class="category-desc">{{ group.description }}</p>
+        </div>
+        <div class="card-grid">
+          <button
+            v-for="(tool, i) in group.tools"
+            :key="tool.id"
+            class="tool-card"
+            :style="{ '--i': i }"
+            @click="openTool(tool)"
+          >
+            <span class="tool-icon">{{ tool.icon }}</span>
+            <span class="tool-info">
+              <span class="tool-name">{{ tool.name }}</span>
+              <span v-if="tool.status === 'placeholder'" class="tool-status">开发中</span>
+            </span>
+            <el-icon class="tool-arrow"><ArrowRight /></el-icon>
+          </button>
+        </div>
+      </section>
+    </div>
 
     <el-empty
       v-if="!loading && groupedTools.length === 0"
@@ -90,131 +118,219 @@ function openTool(tool: Tool) {
 </template>
 
 <style scoped>
-/* ===== 首屏 ===== */
+/* ===== 舞台首屏 ===== */
 .hero {
-  padding: 44px 4px 4px;
+  position: relative;
+  min-height: max(560px, calc(100vh - 64px));
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 中央光斑（源 plate 构图：radial 高光 + 舞台黑） */
+  background:
+    radial-gradient(38% 46% at 52% 42%, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 42%, rgba(5, 5, 5, 0) 70%),
+    #050505;
+}
+
+/* 电影感底部渐隐（源规范多段渐隐曲线） */
+.hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(5, 5, 5, 0) 68%,
+    rgba(5, 5, 5, 0.45) 80%,
+    rgba(5, 5, 5, 0.75) 86%,
+    rgba(5, 5, 5, 0.905) 91%,
+    rgba(5, 5, 5, 0.96) 95%,
+    #050505 100%
+  );
+}
+
+.hero-inner {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 0 24px;
 }
 
 .hero-eyebrow {
-  margin: 0;
+  margin: 0 0 22px;
   font-family: var(--mono);
   font-size: 12px;
-  letter-spacing: 2px;
+  letter-spacing: 0.24em;
+  color: var(--strip);
   text-transform: uppercase;
-  color: var(--el-color-primary);
 }
 
-.hero-title {
-  margin: 12px 0 10px;
-  font-size: 32px;
-  font-weight: 700;
-  letter-spacing: -0.5px;
-}
-
-.hero-sub {
+.headline {
   margin: 0;
-  color: var(--muted);
-  font-size: 14px;
+  font-size: clamp(40px, 7vw, 68px);
+  line-height: 1.12;
+  font-weight: 300;
+  letter-spacing: 0.01em;
+  color: var(--ink);
 }
 
-/* ===== 分类区块 ===== */
+.headline span {
+  display: block;
+}
+
+.sub {
+  margin: 26px 0 0;
+  font-size: clamp(15px, 1.8vw, 19px);
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.sub span {
+  display: block;
+}
+
+.actions {
+  margin-top: 36px;
+  display: flex;
+  justify-content: center;
+}
+
+/* 底部分类条 */
+.strip {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 34px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: clamp(28px, 5vw, 56px);
+  color: var(--strip);
+}
+
+.strip-item {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.dot {
+  display: inline-block;
+  width: 0.1em;
+  height: 0.1em;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: 0.62em;
+  margin-left: 0.3em;
+}
+
+/* ===== 工具分区 ===== */
+.sections {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 0 clamp(20px, 4vw, 40px);
+}
+
 .category {
-  margin-top: 40px;
+  padding: clamp(72px, 10vh, 110px) 0 0;
+  scroll-margin-top: 76px;
+}
+
+/* 眉题：渐变短划线 + 等宽编号（源 eyebrow 实况） */
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.eyebrow::before {
+  content: '';
+  width: 30px;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #6f6f6f, #c9c9c9);
+}
+
+.eyebrow-index,
+.eyebrow-en {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--strip);
+}
+
+.eyebrow-index {
+  color: var(--ink);
 }
 
 .category-header {
   display: flex;
   align-items: baseline;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-.category-index {
-  font-family: var(--mono);
-  font-size: 12px;
-  color: #b4b4ae;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
 }
 
 .category-title {
   margin: 0;
-  font-size: 17px;
-  font-weight: 700;
+  font-size: clamp(26px, 3.4vw, 34px);
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1.16;
+  letter-spacing: 0.01em;
 }
 
 .category-desc {
-  font-size: 12.5px;
+  margin: 0;
+  font-size: 14px;
   color: var(--muted);
 }
 
-.category-count {
-  margin-left: auto;
-  font-size: 12px;
-  color: var(--muted);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 2px 10px;
-  background: var(--surface);
-}
-
-/* ===== 工具卡片 ===== */
+/* ===== 工具卡片（源 card 实况：bg2 + rule 描边 + 14px 圆角）===== */
 .card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
 .tool-card {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 16px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  padding: 18px;
+  background: var(--bg2);
+  border: 1px solid var(--rule);
+  border-radius: 14px;
   cursor: pointer;
   text-align: left;
   font: inherit;
   transition:
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    transform 0.18s ease;
+    border-color 0.25s var(--ease),
+    background-color 0.25s var(--ease),
+    transform 0.25s var(--ease);
 }
 
 .tool-card:hover {
-  border-color: var(--chip-fg);
-  box-shadow: 0 6px 16px rgba(26, 26, 30, 0.07);
+  border-color: rgba(255, 255, 255, 0.24);
+  background: var(--bg3);
   transform: translateY(-2px);
 }
 
 .tool-card:focus-visible {
-  outline: 2px solid var(--el-color-primary);
+  outline: 2px solid #fafafa;
   outline-offset: 2px;
-}
-
-/* 分类配色：图标底色 / 悬停描边 */
-.cat-photography {
-  --chip-bg: #faeedd;
-  --chip-fg: #9a5b13;
-}
-
-.cat-ai-eng {
-  --chip-bg: #e9eafb;
-  --chip-fg: #3f3bb8;
-}
-
-.cat-job {
-  --chip-bg: #ddf2e8;
-  --chip-fg: #157a55;
 }
 
 .tool-icon {
   display: grid;
   place-items: center;
   flex: none;
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
-  background: var(--chip-bg);
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   font-size: 20px;
 }
 
@@ -234,29 +350,69 @@ function openTool(tool: Tool) {
   text-overflow: ellipsis;
 }
 
-/* 虚线胶囊表达"进行中"语义 */
+/* 虚线胶囊表达 WIP 语义（单色化） */
 .tool-status {
   flex: none;
-  font-size: 11px;
-  color: var(--muted);
-  border: 1px dashed #c9c9c4;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  color: var(--strip);
+  border: 1px dashed rgba(255, 255, 255, 0.22);
   border-radius: 999px;
-  padding: 1px 8px;
+  padding: 2px 9px;
 }
 
 .tool-arrow {
   margin-left: auto;
   flex: none;
-  color: var(--chip-fg);
+  color: var(--strip);
   opacity: 0;
   transform: translateX(-4px);
   transition:
-    opacity 0.18s ease,
-    transform 0.18s ease;
+    opacity 0.25s var(--ease),
+    transform 0.25s var(--ease);
 }
 
 .tool-card:hover .tool-arrow {
   opacity: 1;
   transform: translateX(0);
+  color: var(--ink);
+}
+
+/* 最后一个分区补底部间距 */
+.category:last-of-type {
+  padding-bottom: clamp(72px, 10vh, 110px);
+}
+
+/* ===== 入场动画（源规范时序：.02/.06/.14/.22/.34 交错）===== */
+@media (prefers-reduced-motion: no-preference) {
+  .hero-inner {
+    animation: fade 1.2s ease both;
+  }
+
+  .hero-eyebrow {
+    animation: rise 0.9s 0.02s var(--ease) both;
+  }
+
+  .headline {
+    animation: rise 0.9s 0.06s var(--ease) both;
+  }
+
+  .sub {
+    animation: rise 0.9s 0.14s var(--ease) both;
+  }
+
+  .actions {
+    animation: rise 0.9s 0.22s var(--ease) both;
+  }
+
+  .strip-item {
+    animation: fade 1.1s 0.34s ease both;
+  }
+
+  .tool-card {
+    animation: rise 0.7s var(--ease) both;
+    animation-delay: calc(0.28s + var(--i) * 0.05s);
+  }
 }
 </style>
