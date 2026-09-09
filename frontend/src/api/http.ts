@@ -3,8 +3,8 @@ import { ElMessage } from 'element-plus';
 import router from '@/router';
 import { TOKEN_KEY } from '@/stores/auth';
 
-/** 后端网关地址（本地部署，后端 CORS 已放行 5173 来源） */
-const API_BASE_URL = 'http://localhost:3001/api';
+/** 后端网关地址：开发环境直连本地网关（后端 CORS 已放行 5173 来源）；生产构建经 nginx 同源反向代理走相对路径 /api */
+const API_BASE_URL = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
 
 /** 统一 axios 实例 */
 export const http = axios.create({

@@ -7,7 +7,9 @@ packages:
 # 以下包均自带预编译二进制，无需本机执行构建脚本
 # - bcrypt / better-sqlite3：N-API 预编译，ABI 稳定
 # - esbuild：二进制由平台包 @esbuild/win32-x64 直接提供
+# - vue-demi：postinstall 仅做 Vue 版本探测，默认按 Vue3 工作即可
 allowBuilds:
   bcrypt: false
   better-sqlite3: false
   esbuild: false
+  vue-demi: false

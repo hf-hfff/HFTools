@@ -1,0 +1,24 @@
+services:
+  # 前端：nginx 托管静态构建产物，/api 反向代理到 server-node
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - server-node
+    restart: unless-stopped
+
+  # API 网关：Express + SQLite，数据卷持久化到宿主机 ./data
+  server-node:
+    build:
+      context: .
+      dockerfile: server-node/Dockerfile
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./server-node/data:/app/data
+    restart: unless-stopped
+
+# 说明：Dify 复用本地已有部署（经 API 调用，不纳入编排）；worker-python 暂不纳入

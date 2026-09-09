@@ -1,0 +1,18 @@
+# 构建上下文为仓库根目录：排除无关内容，加速构建并避免本地状态进入镜像
+.git
+.gitignore
+.trae
+.vscode
+
+# 依赖与构建产物（容器内重新安装构建）
+**/node_modules
+server-node/dist
+frontend/dist
+
+# 本地数据目录（属于 server-node，与本镜像无关）
+data
+server-node/data
+
+# 日志与临时文件
+*.log
+*.tmp
