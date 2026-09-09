@@ -2,8 +2,26 @@
   "name": "@hftools/frontend",
   "version": "0.0.1",
   "private": true,
-  "description": "HFTools 前端（Vue3 + Vite，后续任务初始化）",
+  "description": "HFTools 前端（Vue3 + Vite + Pinia + Element Plus）",
+  "type": "module",
   "scripts": {
-    "dev": "echo \"frontend dev 未初始化：待 Vite 脚手架任务接入\""
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
+    "axios": "^1.7.9",
+    "element-plus": "^2.9.1",
+    "pinia": "^2.3.0",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "~5.8.3",
+    "vite": "^5.4.11",
+    "vue-tsc": "^2.2.0"
   }
 }
