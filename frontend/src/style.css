@@ -1,3 +1,20 @@
+/* ===== 字体（Dark Cinematic Style Guide 规范字体，随 public/fonts 分发）===== */
+@font-face {
+  font-family: 'Manrope';
+  src: url('/fonts/Manrope-Variable.ttf') format('truetype');
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'GeistMono';
+  src: url('/fonts/GeistMono-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ===== 全局设计令牌（Dark Cinematic Style Guide）===== */
 :root {
   /* 源规范色板：纯黑舞台 + 近白墨色，严格单色 */

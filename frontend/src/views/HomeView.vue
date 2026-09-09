@@ -50,8 +50,11 @@ function openTool(tool: Tool) {
 
 <template>
   <div v-loading="loading" class="home">
-    <!-- ===== 舞台首屏：中央光斑 + 电影感底部渐隐 ===== -->
+    <!-- ===== 舞台首屏：舞台照片 + 中心压暗 + 电影感底部渐隐 ===== -->
     <section class="hero">
+      <!-- 背景图层（源 plate 构图） -->
+      <div class="hero-plate" role="presentation"></div>
+
       <div class="hero-inner">
         <p class="hero-eyebrow">HFTools · Personal AI Toolbox</p>
         <h1 class="headline">
@@ -126,10 +129,27 @@ function openTool(tool: Tool) {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* 中央光斑（源 plate 构图：radial 高光 + 舞台黑） */
-  background:
-    radial-gradient(38% 46% at 52% 42%, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 42%, rgba(5, 5, 5, 0) 70%),
-    #050505;
+  background: #050505;
+}
+
+/* 背景图层（源 plate 实况：舞台照片全幅铺底） */
+.hero-plate {
+  position: absolute;
+  inset: 0;
+  background: url('/images/portal_scene.jpg') center 62% / cover no-repeat;
+}
+
+/* 中心压暗：保证居中文字可读，边缘保留画面（替代源左右渐隐的居中版式适配） */
+.hero-plate::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    75% 65% at 50% 42%,
+    rgba(5, 5, 5, 0.68) 0%,
+    rgba(5, 5, 5, 0.46) 48%,
+    rgba(5, 5, 5, 0.16) 100%
+  );
 }
 
 /* 电影感底部渐隐（源规范多段渐隐曲线） */
@@ -386,6 +406,10 @@ function openTool(tool: Tool) {
 
 /* ===== 入场动画（源规范时序：.02/.06/.14/.22/.34 交错）===== */
 @media (prefers-reduced-motion: no-preference) {
+  .hero-plate {
+    animation: fade 1.6s ease both;
+  }
+
   .hero-inner {
     animation: fade 1.2s ease both;
   }
