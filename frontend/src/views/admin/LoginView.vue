@@ -48,7 +48,7 @@ async function handleLogin() {
   <div class="login-page">
     <el-card class="login-card">
       <div class="login-header">
-        <span class="login-icon">🧰</span>
+        <span class="login-mark">HF</span>
         <h2 class="login-title">HFTools 管理平台</h2>
         <p class="login-sub">请使用管理员账号登录</p>
       </div>
@@ -98,12 +98,18 @@ async function handleLogin() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1d2535 0%, #2b3a55 100%);
+  /* 墨色底 + 顶部一抹品牌色微光 */
+  background:
+    radial-gradient(600px 300px at 50% 0%, rgba(67, 56, 202, 0.28), transparent 70%),
+    #17171c;
 }
 
 .login-card {
   width: 380px;
   padding: 8px 4px;
+  border-radius: 16px;
+  border: none;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
 }
 
 .login-header {
@@ -111,18 +117,27 @@ async function handleLogin() {
   margin-bottom: 20px;
 }
 
-.login-icon {
-  font-size: 34px;
+.login-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #4338ca;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 1px;
 }
 
 .login-title {
-  margin: 8px 0 4px;
+  margin: 12px 0 4px;
   font-size: 20px;
 }
 
 .login-sub {
   margin: 0;
-  color: #909399;
+  color: #8a8a93;
   font-size: 13px;
 }
 

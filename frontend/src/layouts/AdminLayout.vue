@@ -19,14 +19,14 @@ function handleLogout() {
   <el-container class="admin-layout">
     <el-aside width="220px" class="admin-aside">
       <div class="admin-brand">
-        <span class="brand-icon">🧰</span>
+        <span class="brand-mark">HF</span>
         <span class="brand-text">HFTools 管理平台</span>
       </div>
       <el-menu
         :default-active="route.path"
         router
         class="admin-menu"
-        background-color="#1d2535"
+        background-color="#17171c"
         text-color="#a3adc2"
         active-text-color="#ffffff"
       >
@@ -64,7 +64,7 @@ function handleLogout() {
 }
 
 .admin-aside {
-  background-color: #1d2535;
+  background-color: #17171c;
   display: flex;
   flex-direction: column;
 }
@@ -72,18 +72,43 @@ function handleLogout() {
 .admin-brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 0 20px;
   height: 56px;
   color: #ffffff;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 14.5px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: #4338ca;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
 }
 
 .admin-menu {
   border-right: none;
   flex: 1;
+  padding-top: 8px;
+}
+
+/* 菜单项圆角化，激活项使用品牌色 */
+.admin-menu :deep(.el-menu-item) {
+  border-radius: 8px;
+  margin: 2px 10px;
+}
+
+.admin-menu :deep(.el-menu-item.is-active) {
+  background-color: #4338ca;
 }
 
 .admin-header {

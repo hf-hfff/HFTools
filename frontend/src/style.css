@@ -1,4 +1,25 @@
-/* 全局基础样式 */
+/* ===== 全局设计令牌 ===== */
+:root {
+  /* 品牌色：靛蓝（覆盖 Element Plus 默认蓝） */
+  --el-color-primary: #4338ca;
+  --el-color-primary-light-3: #6f68d8;
+  --el-color-primary-light-5: #9893e3;
+  --el-color-primary-light-7: #c3c0f0;
+  --el-color-primary-light-8: #d9d7f5;
+  --el-color-primary-light-9: #eeedfb;
+  --el-color-primary-dark-2: #352fa1;
+
+  /* 中性色 */
+  --ink: #1a1a1e;
+  --muted: #8a8a93;
+  --border: #e8e8e4;
+  --paper: #f7f7f5;
+  --surface: #ffffff;
+
+  /* 等宽字体（编号/眉题等细节） */
+  --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -16,11 +37,29 @@ body {
     'Segoe UI',
     Roboto,
     sans-serif;
-  background-color: #f5f7fa;
-  color: #303133;
+  /* 暖纸色底 + 细点阵纹理，营造工作台质感 */
+  background-color: var(--paper);
+  background-image: radial-gradient(#dcdcd6 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
 }
 
 #app {
   height: 100%;
+}
+
+::selection {
+  background: #d9d7f5;
+  color: #1a1a1e;
+}
+
+/* 尊重系统"减少动态效果"设置 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
 }
