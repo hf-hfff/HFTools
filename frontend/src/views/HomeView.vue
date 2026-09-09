@@ -58,8 +58,8 @@ function openTool(tool: Tool) {
       <div class="hero-inner">
         <p class="hero-eyebrow">HFTools · Personal AI Toolbox</p>
         <h1 class="headline">
-          <span>常用 AI 工具，</span>
-          <span>一箱收纳。</span>
+          <span>AI 能力集成平台</span>
+          <span>工具链一站式调度</span>
         </h1>
         <p class="sub">
           <span>摄影 · AI 工程 · 求职</span>
