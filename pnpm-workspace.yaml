@@ -1,0 +1,6 @@
+# pnpm workspace 配置
+# 包含三个子包：前端、Node 网关、Python worker（Python 不参与 pnpm 包管理，仅保留目录约定）
+packages:
+  - frontend
+  - server-node
+  - worker-python

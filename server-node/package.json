@@ -1,0 +1,9 @@
+{
+  "name": "@hftools/server-node",
+  "version": "0.0.1",
+  "private": true,
+  "description": "HFTools Node API 网关（后续任务实现）",
+  "scripts": {
+    "dev": "echo \"server-node dev 未初始化：待网关搭建任务接入\""
+  }
+}

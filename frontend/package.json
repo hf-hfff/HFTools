@@ -1,0 +1,9 @@
+{
+  "name": "@hftools/frontend",
+  "version": "0.0.1",
+  "private": true,
+  "description": "HFTools 前端（Vue3 + Vite，后续任务初始化）",
+  "scripts": {
+    "dev": "echo \"frontend dev 未初始化：待 Vite 脚手架任务接入\""
+  }
+}

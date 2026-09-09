@@ -1,0 +1,11 @@
+{
+  "name": "hftools",
+  "version": "0.0.1",
+  "private": true,
+  "description": "HFTools 个人 AI 工具箱 monorepo",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @hftools/frontend --filter @hftools/server-node run dev",
+    "dev:web": "pnpm --filter @hftools/frontend run dev",
+    "dev:api": "pnpm --filter @hftools/server-node run dev"
+  }
+}
