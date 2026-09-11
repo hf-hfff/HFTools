@@ -11,6 +11,12 @@ const router = createRouter({
       children: [
         { path: '', name: 'home', component: () => import('@/views/HomeView.vue') },
         {
+          // 已上线工具的正式路由（与 tools 表 route 字段一致），须在通用 tool/:id 之前匹配
+          path: 'tools/photo-review',
+          name: 'photo-review',
+          component: () => import('@/views/PhotoReviewView.vue'),
+        },
+        {
           path: 'tool/:id',
           name: 'tool',
           component: () => import('@/views/ToolPlaceholder.vue'),

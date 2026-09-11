@@ -38,6 +38,8 @@ WORKDIR /app
 COPY --from=deps /repo/node_modules ./node_modules
 COPY --from=build /repo/server-node/dist ./dist
 COPY server-node/package.json ./
+# prompt/熊猫动图等静态资产（tsc 不拷贝非 TS 文件，须显式 COPY）
+COPY server-node/assets ./assets
 
 # SQLite 数据目录（compose 中以卷持久化）
 RUN mkdir -p /app/data

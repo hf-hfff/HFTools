@@ -33,6 +33,9 @@ http.interceptors.response.use(
       localStorage.removeItem(TOKEN_KEY);
       router.push({ name: 'admin-login', query: { redirect: router.currentRoute.value.fullPath } });
       ElMessage.error('登录已过期，请重新登录');
+    } else if (status === undefined && error.code === 'ECONNABORTED') {
+      // 请求超时（无响应）：提示超时而非泛化失败（照片点评等长请求由页面自行弹窗详因）
+      ElMessage.error('请求超时，请稍后重试');
     } else {
       // 其余错误（含登录失败 401）统一展示后端 message
       ElMessage.error(backendMessage || '请求失败，请稍后重试');
