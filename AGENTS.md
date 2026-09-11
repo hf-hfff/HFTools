@@ -49,6 +49,7 @@
 -->
 
 - 2026-09-09 | 平台框架 | monorepo（frontend/server-node/worker-python）+ Node 网关 + 工具注册机制（10 工具种子）+ 管理平台（登录/工具开关/模型配置 AES 加密）+ docker-compose | spec 验收 15/15 通过，4 次 git 提交（dc859db→013ab23）
+- 2026-09-09 | 照片点评 | 复用摄影点评 skill（prompt 资产迁入 server-node/assets + 熊猫 GIF 静态服务 /static）+ POST /api/ai/photo-review 多模态 LLM 代理（OpenAI 兼容、key 解密后端调用、错误分类+上游详情透出）+ 前端点评页（上传/描述/Markdown 渲染 DOMPurify 净化）+ 工具状态 placeholder→active 迁移 | 前后端编译通过；浏览器 UI 完整路径验证通过（真实多模态 LLM 点评约 30s 返回，打分/GIF 触发/Markdown 渲染均正常）；修复前端取数 bug（res.data.review→经 ApiResponse.data）；交互打磨：点评中禁用换图、120s 超时弹窗详因、拍立得显影等待动画+轮播文案+计时、返回工具箱按钮；修复 marked 对「**加粗。**紧跟中文」不渲染的 CJK 边界问题（normalizeBold 预转 strong，node 级管线验证通过）；点评框底部新增 AI 免责提示；首页删"浏览全部工具"按钮、工具卡增加"可用"绿色实线标识（与开发中虚线灰对比）；背景照片墙：assets/bg-photos 经 import.meta.glob 自适应收集，白色相纸边框 + 错乱排布（seeded 伪随机稳定布局）+ 聚光灯轮播（3s 切换、CSS transition、尊重 prefers-reduced-motion）+ 强蒙层（0.78+vignette）保证可读性，pointer-events:none 不挡上传交互 | 浏览器五轮验证通过（10 张照片渲染、轮播 active 索引切换、dropzone 命中不受遮挡）；修复 glob 相对路径 bug（../../assets→../assets）
 
 ***
 
@@ -119,7 +120,7 @@
 | 任务交付物       | 任务完成后    | 沉淀到对应业务文档  |
 | 临时文件        | 任务结束后    | 立即删除       |
 
-- 本项目文件命名不需要增加`_codex`后缀
+- 本项目文件命名不需要增加`_codex`或`_trae`后缀
 ***
 
 ## 六、冲突处理优先级
