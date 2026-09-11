@@ -345,6 +345,8 @@ function openTool(tool: Tool) {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   font-size: 20px;
+  /* button 不继承 body 浅色，图标需显式指定，否则为浏览器默认深色 */
+  color: var(--ink);
 }
 
 .tool-info {
