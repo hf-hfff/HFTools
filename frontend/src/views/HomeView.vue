@@ -3,6 +3,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ArrowRight } from '@element-plus/icons-vue';
+import ToolIcon from '@/components/ToolIcon.vue';
 import { useToolsStore } from '@/stores/tools';
 import type { Tool, ToolCategory } from '@/types';
 
@@ -42,9 +43,9 @@ const groupedTools = computed(() =>
 /** 已上线（非占位）工具数 */
 const readyCount = computed(() => toolsStore.tools.filter((t) => t.status !== 'placeholder').length);
 
-/** 点击卡片进入工具页 */
+/** 点击卡片进入工具页：已上线工具跳注册路由，开发中走占位页 */
 function openTool(tool: Tool) {
-  router.push(`/tool/${tool.id}`);
+  router.push(tool.status === 'placeholder' ? `/tool/${tool.id}` : tool.route);
 }
 </script>
 
@@ -65,9 +66,6 @@ function openTool(tool: Tool) {
           <span>摄影 · AI 工程 · 求职</span>
           <span>本地运行 · {{ toolsStore.tools.length }} 个工具已注册 · {{ readyCount }} 个已上线</span>
         </p>
-        <div class="actions">
-          <a href="#tools" class="pill">浏览全部工具</a>
-        </div>
       </div>
 
       <!-- 底部分类条（源 logos strip 构图） -->
@@ -102,10 +100,11 @@ function openTool(tool: Tool) {
             :style="{ '--i': i }"
             @click="openTool(tool)"
           >
-            <span class="tool-icon">{{ tool.icon }}</span>
+            <span class="tool-icon"><ToolIcon :name="tool.icon" /></span>
             <span class="tool-info">
               <span class="tool-name">{{ tool.name }}</span>
               <span v-if="tool.status === 'placeholder'" class="tool-status">开发中</span>
+              <span v-else class="tool-status tool-status--ready">可用</span>
             </span>
             <el-icon class="tool-arrow"><ArrowRight /></el-icon>
           </button>
@@ -207,12 +206,6 @@ function openTool(tool: Tool) {
 
 .sub span {
   display: block;
-}
-
-.actions {
-  margin-top: 36px;
-  display: flex;
-  justify-content: center;
 }
 
 /* 底部分类条 */
@@ -382,6 +375,13 @@ function openTool(tool: Tool) {
   padding: 2px 9px;
 }
 
+/* 已上线：实线绿胶囊，与 WIP 虚线灰形成状态对比 */
+.tool-status--ready {
+  color: #9fdcae;
+  border: 1px solid rgba(159, 220, 174, 0.38);
+  background: rgba(159, 220, 174, 0.08);
+}
+
 .tool-arrow {
   margin-left: auto;
   flex: none;
@@ -424,10 +424,6 @@ function openTool(tool: Tool) {
 
   .sub {
     animation: rise 0.9s 0.14s var(--ease) both;
-  }
-
-  .actions {
-    animation: rise 0.9s 0.22s var(--ease) both;
   }
 
   .strip-item {

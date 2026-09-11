@@ -3,6 +3,7 @@
 import { onMounted, ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { getAllTools, updateToolEnabled } from '@/api/admin';
+import ToolIcon from '@/components/ToolIcon.vue';
 import { useToolsStore } from '@/stores/tools';
 import { CATEGORY_LABELS, type Tool, type ToolCategory } from '@/types';
 
@@ -63,7 +64,7 @@ async function onSwitchChange(tool: Tool, newVal: boolean | string | number) {
       <el-table v-loading="loading" :data="tools" stripe>
         <el-table-column label="图标" width="64">
           <template #default="{ row }">
-            <span class="tool-icon">{{ row.icon }}</span>
+            <span class="tool-icon"><ToolIcon :name="row.icon" /></span>
           </template>
         </el-table-column>
         <el-table-column prop="name" label="工具名称" min-width="140" />

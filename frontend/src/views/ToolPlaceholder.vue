@@ -2,6 +2,7 @@
 // 工具占位页：status=placeholder 时展示"开发中"，未找到/未启用时展示未找到
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import ToolIcon from '@/components/ToolIcon.vue';
 import { useToolsStore } from '@/stores/tools';
 
 const route = useRoute();
@@ -31,7 +32,7 @@ const tool = computed(() => toolsStore.tools.find((t) => t.id === toolId.value))
       <p class="crumb">TOOLS / {{ tool.id.toUpperCase() }}</p>
 
       <div class="tool-header">
-        <span class="tool-icon">{{ tool.icon }}</span>
+        <span class="tool-icon"><ToolIcon :name="tool.icon" /></span>
         <h2 class="tool-title">{{ tool.name }}</h2>
       </div>
 

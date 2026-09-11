@@ -14,7 +14,7 @@ export interface Tool {
   name: string;
   category: ToolCategory;
   route: string;
-  /** emoji 字符，前端直接渲染 */
+  /** Element Plus 图标名（kebab-case），由 ToolIcon 组件渲染 */
   icon: string;
   enabled: boolean;
   /** 实现状态：placeholder = 未实现（开发中） */
