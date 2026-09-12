@@ -3,6 +3,11 @@ import { useAuthStore } from '@/stores/auth';
 
 const router = createRouter({
   history: createWebHistory(),
+  // 路由切换后回到页面顶部；浏览器前进/后退时恢复原滚动位置
+  scrollBehavior(to, from, savedPosition) {
+    if (savedPosition) return savedPosition;
+    return { top: 0 };
+  },
   routes: [
     // 用户端：首页 + 工具占位页
     {
@@ -15,6 +20,11 @@ const router = createRouter({
           path: 'tools/photo-review',
           name: 'photo-review',
           component: () => import('@/views/PhotoReviewView.vue'),
+        },
+        {
+          path: 'tools/prompt-engineering',
+          name: 'prompt-engineering',
+          component: () => import('@/views/PromptOptimizeView.vue'),
         },
         {
           path: 'tool/:id',
