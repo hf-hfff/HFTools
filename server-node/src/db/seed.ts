@@ -17,7 +17,7 @@ const TOOL_SEEDS: ReadonlyArray<{
   { id: 'photo-enhance', name: '照片AI优化', category: 'photography', icon: 'magic-stick', status: 'placeholder' },
   { id: 'gear-params', name: '摄影器材参数', category: 'photography', icon: 'suitcase', status: 'placeholder' },
   { id: 'photo-basics', name: '摄影基础知识', category: 'photography', icon: 'reading', status: 'placeholder' },
-  { id: 'prompt-engineering', name: '提示词工程', category: 'ai-eng', icon: 'edit-pen', status: 'placeholder' },
+  { id: 'prompt-engineering', name: '提示词优化', category: 'ai-eng', icon: 'edit-pen', status: 'active' },
   { id: 'ai-tools', name: 'AI工具下载/介绍', category: 'ai-eng', icon: 'cpu', status: 'placeholder' },
   { id: 'git-trending', name: 'git热点追踪', category: 'ai-eng', icon: 'trend-charts', status: 'placeholder' },
   { id: 'jd-analysis', name: 'JD拆解', category: 'job', icon: 'tickets', status: 'placeholder' },
@@ -41,11 +41,15 @@ export function seedTools(): void {
   const updateIconStmt = db.prepare(
     `UPDATE tools SET icon = ? WHERE id = ? AND icon <> ?`,
   );
+  const updateNameStmt = db.prepare(
+    `UPDATE tools SET name = ? WHERE id = ? AND name <> ?`,
+  );
   const run = db.transaction(() => {
     TOOL_SEEDS.forEach((tool, index) => {
       insertStmt.run(tool.id, tool.name, tool.category, `/tools/${tool.id}`, tool.icon, tool.status, index + 1);
       updateStatusStmt.run(tool.status, tool.id, tool.status);
       updateIconStmt.run(tool.icon, tool.id, tool.icon);
+      updateNameStmt.run(tool.name, tool.id, tool.name);
     });
   });
   run();
