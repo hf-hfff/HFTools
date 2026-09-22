@@ -3,8 +3,7 @@ import { useAuthStore } from '@/stores/auth';
 
 const router = createRouter({
   history: createWebHistory(),
-  // 路由切换后回到页面顶部；浏览器前进/后退时恢复原滚动位置
-  scrollBehavior(to, from, savedPosition) {
+  scrollBehavior(_to, _from, savedPosition) {
     if (savedPosition) return savedPosition;
     return { top: 0 };
   },

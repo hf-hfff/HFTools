@@ -250,7 +250,7 @@ async function submit() {
       <div class="tool-header">
         <span class="tool-icon"><ToolIcon :name="tool.icon" /></span>
         <h2 class="tool-title">{{ tool.name }}</h2>
-        <button class="back-btn" @click="router.push('/')">← 返回工具箱</button>
+        <button class="pill back-btn" @click="router.push('/')">← 返回工具箱</button>
       </div>
 
       <div class="review-layout">
@@ -361,7 +361,7 @@ async function submit() {
   min-height: calc(100vh - 64px);
   max-width: 1060px;
   margin: 0 auto;
-  padding: clamp(48px, 8vh, 96px) clamp(20px, 4vw, 40px);
+  padding: clamp(16px, 2.667vh, 32px) clamp(20px, 4vw, 40px);
 }
 
 /* 单张照片：白色相纸边框（底部略宽，显影相纸感） */
@@ -458,6 +458,7 @@ async function submit() {
   min-width: 0;
   padding: 0 18px;
   font-size: 13.5px;
+  cursor: pointer;
 }
 
 /* ===== 双栏布局 ===== */

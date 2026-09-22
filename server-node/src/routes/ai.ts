@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getDecryptedConfig, type ModelType } from '../services/model-configs.service.js';
 import { reviewPhoto } from '../services/photo-review.service.js';
+import { optimizePrompt } from '../services/prompt-optimize.service.js';
 import { sendOk, ApiError } from '../utils/response.js';
 
 /**
@@ -24,6 +25,21 @@ aiRouter.post('/api/ai/photo-review', async (req, res, next) => {
     sendOk(res, { review });
   } catch (err) {
     // Express 4 不自动捕获 async rejection，需显式交给全局错误处理
+    next(err);
+  }
+});
+
+/** 提示词优化：POST /api/ai/prompt-optimize，body: { prompt, level, scene } */
+aiRouter.post('/api/ai/prompt-optimize', async (req, res, next) => {
+  try {
+    const { prompt, level, scene } = (req.body ?? {}) as {
+      prompt?: unknown;
+      level?: unknown;
+      scene?: unknown;
+    };
+    const result = await optimizePrompt(prompt, level, scene);
+    sendOk(res, { result });
+  } catch (err) {
     next(err);
   }
 });

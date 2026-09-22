@@ -62,7 +62,7 @@ const tool = computed(() => toolsStore.tools.find((t) => t.id === toolId.value))
   min-height: calc(100vh - 64px);
   max-width: 1060px;
   margin: 0 auto;
-  padding: clamp(48px, 8vh, 96px) clamp(20px, 4vw, 40px);
+  padding: clamp(16px, 2.667vh, 32px) clamp(20px, 4vw, 40px);
 }
 
 /* 眉题面包屑（源 eyebrow 风格） */
