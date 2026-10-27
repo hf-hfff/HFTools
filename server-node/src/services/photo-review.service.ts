@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { getDecryptedConfig } from './model-configs.service.js';
+import { getResolvedConfig } from './model-configs.service.js';
 import { chatCompletion, type ChatMessage } from './llm-client.service.js';
 import { ApiError } from '../utils/response.js';
 
@@ -54,11 +54,12 @@ export async function reviewPhoto(image: unknown, note: unknown): Promise<string
   }
 
   // ---- 模型配置 ----
-  const config = getDecryptedConfig('llm');
-  const baseUrl = config?.base_url;
-  const apiKey = config?.api_key;
-  if (!config || !baseUrl || !apiKey) {
-    throw new ApiError(400, 'MODEL_NOT_CONFIGURED', '模型服务（llm）尚未配置，请先在管理平台完成配置');
+  const config = getResolvedConfig();
+  const baseUrl = config.base_url;
+  const apiKey = config.api_key;
+  const model = config.default_model;
+  if (!baseUrl || !apiKey || !model) {
+    throw new ApiError(400, 'MODEL_NOT_CONFIGURED', '模型服务尚未配置，请先在管理平台完成配置');
   }
 
   // ---- 组装多模态消息 ----
@@ -75,7 +76,7 @@ export async function reviewPhoto(image: unknown, note: unknown): Promise<string
 
   // ---- 调用 LLM 并替换熊猫动图路径 ----
   const review = await chatCompletion(
-    { base_url: baseUrl, api_key: apiKey, models: config.models },
+    { base_url: baseUrl, api_key: apiKey, model, reasoning_effort: config.reasoning_effort },
     messages,
   );
   return review.replace(PANDA_GIF_RE, PANDA_GIF_URL);

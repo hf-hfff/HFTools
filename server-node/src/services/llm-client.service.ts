@@ -1,8 +1,10 @@
 import { ApiError } from '../utils/response.js';
+import { supportsReasoning } from './model-capabilities.js';
+import type { ReasoningEffort } from './model-configs.service.js';
 
 /**
  * OpenAI 兼容 LLM 客户端：POST {base_url}/chat/completions
- * 前端零密钥，所有调用经后端代理；model 取配置 models[0]（多模型切换延后）
+ * 前端零密钥，所有调用经后端代理；model 取配置的默认模型
  */
 
 /** chat/completions 消息格式（支持多模态 content 数组） */
@@ -11,11 +13,13 @@ export interface ChatMessage {
   content: string | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }>;
 }
 
-/** 已解密的模型配置（来自 model-configs.service.getDecryptedConfig） */
+/** 已解密的模型配置（来自 model-configs.service.getResolvedConfig） */
 export interface LlmClientConfig {
   base_url: string;
   api_key: string;
-  models: string[];
+  model: string;
+  /** 全局推理强度：仅对推理模型透传，其余模型自动忽略 */
+  reasoning_effort?: ReasoningEffort;
 }
 
 /** 非流式补全返回 */
@@ -23,8 +27,8 @@ interface ChatCompletionResponse {
   choices?: Array<{ message?: { content?: string | null } }>;
 }
 
-/** LLM 请求默认超时（点评生成为长文本任务） */
-const DEFAULT_TIMEOUT_MS = 90_000;
+/** LLM 请求默认超时（点评生成为长文本任务；大图 base64 上传 + 推理耗时可达 1 分钟以上） */
+const DEFAULT_TIMEOUT_MS = 150_000;
 
 /** 拼接 chat/completions 完整地址（兼容 base_url 带不带 /v1、结尾斜杠） */
 function buildEndpoint(baseUrl: string): string {
@@ -35,6 +39,7 @@ function buildEndpoint(baseUrl: string): string {
 
 /**
  * 调用 LLM 非流式补全，返回 assistant 文本
+ * 推理强度仅在模型支持时透传（请求期参数整形，不做保存前校验）
  * 网络失败/鉴权失败→502（UPSTREAM_UNAVAILABLE / UPSTREAM_AUTH_FAILED）
  * 上游 429→429；超时→504；响应缺 content→502
  */
@@ -43,9 +48,14 @@ export async function chatCompletion(
   messages: ChatMessage[],
   opts: { timeoutMs?: number } = {},
 ): Promise<string> {
-  const model = config.models[0];
+  const model = config.model;
   if (!model) {
-    throw new ApiError(400, 'MODEL_NOT_CONFIGURED', 'llm 配置中未填模型名称（models），请先在管理平台完成配置');
+    throw new ApiError(400, 'MODEL_NOT_CONFIGURED', '模型服务尚未配置默认模型，请先在管理平台完成配置');
+  }
+
+  const body: Record<string, unknown> = { model, messages, stream: false };
+  if (config.reasoning_effort && supportsReasoning(model)) {
+    body.reasoning_effort = config.reasoning_effort;
   }
 
   let response: Response;
@@ -56,7 +66,7 @@ export async function chatCompletion(
         'Content-Type': 'application/json',
         Authorization: `Bearer ${config.api_key}`,
       },
-      body: JSON.stringify({ model, messages, stream: false }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(opts.timeoutMs ?? DEFAULT_TIMEOUT_MS),
     });
   } catch (err) {

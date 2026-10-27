@@ -22,18 +22,28 @@ export interface Tool {
   sort_order: number;
 }
 
-/** 模型配置类型：大语言模型 / 生图模型 / Dify 工作流 */
-export type ModelType = 'llm' | 'image-gen' | 'dify';
+/** 推理强度（与后端 reasoning_effort 对齐） */
+export type ReasoningEffort = 'low' | 'medium' | 'high';
 
-/** 模型配置（后端返回时 api_key 已脱敏，未配置为 null） */
+/** 模型配置（单对象，后端返回时 api_key 已脱敏） */
 export interface ModelConfig {
-  type: ModelType;
+  provider: 'openai';
   base_url: string | null;
   api_key: string | null;
-  models: string[];
-  /** 生图专用可选扩展：上游要求 image_model 参数时填写（非密钥，仅 image-gen） */
-  image_model?: string | null;
+  default_model: string | null;
+  /** null 表示跟随系统默认生图模型 */
+  image_model: string | null;
+  reasoning_effort: ReasoningEffort;
   updated_at: string | null;
+}
+
+/** 上游模型用途分类 */
+export type UpstreamModelKind = 'chat' | 'image' | 'other';
+
+/** 上游模型条目（仅当前页面使用，不缓存） */
+export interface UpstreamModel {
+  id: string;
+  kind: UpstreamModelKind;
 }
 
 /** 分类中文名映射 */

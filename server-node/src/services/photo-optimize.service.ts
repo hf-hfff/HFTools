@@ -1,7 +1,8 @@
 import { ApiError } from '../utils/response.js';
-import { getDecryptedConfig } from './model-configs.service.js';
+import { getResolvedConfig, type ResolvedModelConfig } from './model-configs.service.js';
 import { chatCompletion, type ChatMessage } from './llm-client.service.js';
-import { generateImageWithResponsesApi, type ResponsesImageInput } from './responses-image.client.js';
+import { type ResponsesImageInput } from './responses-image.client.js';
+import { generateImageWithEdits } from './image-edit.client.js';
 
 /**
  * 照片 AI 优化：共享契约（场景白名单 + 请求/分析结果类型 + 输入校验）+ 两阶段编排
@@ -161,12 +162,12 @@ function buildAnalysisUserText(req: PhotoOptimizeRequest): string {
 
 /**
  * 阶段一：多模态 LLM 分析原图，返回原始模型文本
- * llm 缺配置 → MODEL_NOT_CONFIGURED；调用失败由 llm-client 抛出语义化 ApiError 并原样透传
+ * 配置缺失 → MODEL_NOT_CONFIGURED；调用失败由 llm-client 抛出语义化 ApiError 并原样透传
  */
 async function runPhotoAnalysis(req: PhotoOptimizeRequest): Promise<string> {
-  const config = getDecryptedConfig('llm');
-  if (!config?.base_url || !config.api_key) {
-    throw new ApiError(400, 'MODEL_NOT_CONFIGURED', '模型服务（llm）尚未配置，请先在管理平台完成配置');
+  const config = getResolvedConfig();
+  if (!config.base_url || !config.api_key || !config.default_model) {
+    throw new ApiError(400, 'MODEL_NOT_CONFIGURED', '模型服务尚未配置，请先在管理平台完成配置');
   }
   const messages: ChatMessage[] = [
     { role: 'system', content: ANALYSIS_SYSTEM_PROMPT },
@@ -179,7 +180,12 @@ async function runPhotoAnalysis(req: PhotoOptimizeRequest): Promise<string> {
     },
   ];
   return chatCompletion(
-    { base_url: config.base_url, api_key: config.api_key, models: config.models },
+    {
+      base_url: config.base_url,
+      api_key: config.api_key,
+      model: config.default_model,
+      reasoning_effort: config.reasoning_effort,
+    },
     messages,
   );
 }
@@ -392,23 +398,6 @@ export function buildFinalPrompt(
   return prompt;
 }
 
-/** image-gen 配置视图（image_model 为可选扩展字段，上游要求时随生图请求透传） */
-interface ImageGenConfigView {
-  base_url: string | null;
-  api_key: string | null;
-  models: string[];
-  image_model?: string;
-}
-
-/** 读取 image-gen 配置；image_model 空白时归一为省略（旧配置无该字段同样兼容） */
-function readImageGenConfig(): ImageGenConfigView | null {
-  const cfg = getDecryptedConfig('image-gen');
-  if (!cfg) return null;
-  const { image_model: rawImageModel, ...rest } = cfg;
-  const imageModel = typeof rawImageModel === 'string' ? rawImageModel.trim() : '';
-  return imageModel ? { ...rest, image_model: imageModel } : rest;
-}
-
 /** 照片 AI 优化成功结果 */
 export interface PhotoOptimizeResult {
   analysis: PhotoAnalysis;
@@ -417,7 +406,7 @@ export interface PhotoOptimizeResult {
 
 /** 编排各阶段的可注入实现（冒烟/测试用；缺省为真实实现） */
 export interface PhotoOptimizeStages {
-  readImageConfig?: () => ImageGenConfigView | null;
+  readConfig?: () => ResolvedModelConfig;
   analyze?: (req: PhotoOptimizeRequest) => Promise<string>;
   generate?: (input: ResponsesImageInput) => Promise<string>;
 }
@@ -485,38 +474,45 @@ function mapAnalyzeError(err: unknown): ApiError {
   return new ApiError(502, 'ANALYSIS_FAILED', '照片分析失败，请重试');
 }
 
-/** 前置校验通过的 image-gen 配置（base_url、api_key、models[0] 均非空） */
-interface ResolvedImageGen {
-  imageCfg: ImageGenConfigView | null;
+/** 前置校验通过的模型配置（base_url、api_key、default_model 均非空） */
+interface ResolvedGenerationConfig {
   baseUrl: string;
   apiKey: string;
+  defaultModel: string;
+  /** 已应用默认回退的生图模型；生图请求不带 reasoning */
   imageModel: string;
 }
 
 /**
- * 读取并前置校验 image-gen 配置（optimizePhoto 与 regeneratePhoto 共用，同错误码同日志）：
- * 缺 base_url/api_key 或 models[0] → 400 MODEL_NOT_CONFIGURED，日志记阶段=config
+ * 读取并前置校验统一模型配置（optimizePhoto 与 regeneratePhoto 共用，同错误码同日志）：
+ * 缺 base_url/api_key → 400 MODEL_NOT_CONFIGURED；缺默认模型 → 同码不同文案；日志记阶段=config
  */
-function requireImageGenConfig(
+function requireModelConfig(
   stages: PhotoOptimizeStages,
   startedAt: number,
-): ResolvedImageGen {
-  const imageCfg = (stages.readImageConfig ?? readImageGenConfig)();
-  const baseUrl = imageCfg?.base_url ?? '';
-  const apiKey = imageCfg?.api_key ?? '';
-  const imageModel = imageCfg?.models[0] ?? '';
+): ResolvedGenerationConfig {
+  const config = (stages.readConfig ?? getResolvedConfig)();
+  const baseUrl = config.base_url ?? '';
+  const apiKey = config.api_key ?? '';
+  const defaultModel = config.default_model ?? '';
   const failConfig = (message: string): never => {
     const err = new ApiError(400, 'MODEL_NOT_CONFIGURED', message);
     logStageFailure('config', err, startedAt);
     throw err;
   };
   if (!baseUrl || !apiKey) {
-    failConfig('模型服务（image-gen）尚未配置，请先在管理平台完成配置');
+    failConfig('模型服务尚未配置，请先在管理平台完成配置');
   }
-  if (!imageModel) {
-    failConfig('模型服务（image-gen）未填模型名称（models），请先在管理平台完成配置');
+  if (!defaultModel) {
+    failConfig('模型服务尚未配置默认模型，请先在管理平台完成配置');
   }
-  return { imageCfg, baseUrl, apiKey, imageModel };
+  return {
+    baseUrl,
+    apiKey,
+    defaultModel,
+    // image_model 在 getResolvedConfig 内已回退默认值，此处不会为空
+    imageModel: config.image_model,
+  };
 }
 
 /**
@@ -525,7 +521,7 @@ function requireImageGenConfig(
  * 日志只记阶段=generate 的错误码与耗时（不打 key/完整 prompt/完整 data URL）
  */
 async function runGeneration(
-  resolved: ResolvedImageGen,
+  resolved: ResolvedGenerationConfig,
   image: string,
   prompt: string,
   analysis: PhotoAnalysis,
@@ -533,11 +529,12 @@ async function runGeneration(
 ): Promise<string> {
   const generateStart = Date.now();
   try {
-    const result_image = await (stages.generate ?? generateImageWithResponsesApi)({
+    // 生图走标准图生图端点（images/edits）：上游对 Responses 的 image_generation 工具支持不稳定
+    const result_image = await (stages.generate ?? generateImageWithEdits)({
       baseUrl: resolved.baseUrl,
       apiKey: resolved.apiKey,
-      model: resolved.imageModel,
-      ...(resolved.imageCfg?.image_model ? { imageModel: resolved.imageCfg.image_model } : {}),
+      model: resolved.defaultModel,
+      imageModel: resolved.imageModel,
       image,
       prompt,
     });
@@ -554,7 +551,7 @@ async function runGeneration(
 
 /**
  * 照片 AI 优化主编排（任何失败均不自动重试）：
- * 1) 入参校验 → 2) image-gen 配置前置校验（必须先于阶段一，避免白分析）→
+ * 1) 入参校验 → 2) 模型配置前置校验（必须先于阶段一，避免白分析）→
  * 3) 阶段一多模态分析（失败经 mapAnalyzeError 映射错误码）→ 4) schema 校验 →
  * 5) 组装最终 prompt → 6) Responses API image_generation 重绘（失败以 PhotoOptimizeError 携带 analysis）
  */
@@ -564,7 +561,7 @@ export async function optimizePhoto(
 ): Promise<PhotoOptimizeResult> {
   const startedAt = Date.now();
   const req = validatePhotoOptimizeInput(input);
-  const resolved = requireImageGenConfig(stages, startedAt);
+  const resolved = requireModelConfig(stages, startedAt);
 
   const analyzeStart = Date.now();
   let raw: string;
@@ -592,7 +589,7 @@ export async function optimizePhoto(
 
 /**
  * 仅重发生图（POST /api/ai/photo-optimize/retry，供生图阶段失败后的手动重试）：
- * 1) 入参与主流程同口径校验 → 2) image-gen 配置前置校验 → 3) 重新校验前端传回的 analysis
+ * 1) 入参与主流程同口径校验 → 2) 模型配置前置校验 → 3) 重新校验前端传回的 analysis
  * （不信任前端；不合法 → ANALYSIS_INVALID_OUTPUT，不会进入生图）→
  * 4) 组装最终 prompt → 5) Responses API 重绘（失败以 PhotoOptimizeError 携带 analysis）
  * 不调用阶段一（不打 llm）、无自动重试；日志同规范（阶段/错误码/耗时，无敏感信息）
@@ -604,7 +601,7 @@ export async function regeneratePhoto(
   const startedAt = Date.now();
   const body = (typeof input === 'object' && input !== null ? input : {}) as Record<string, unknown>;
   const req = validatePhotoOptimizeInput(body);
-  const resolved = requireImageGenConfig(stages, startedAt);
+  const resolved = requireModelConfig(stages, startedAt);
 
   let analysis: PhotoAnalysis;
   try {

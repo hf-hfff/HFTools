@@ -12,8 +12,10 @@ import { ApiError } from '../utils/response.js';
 export interface ResponsesImageInput {
   baseUrl: string;
   apiKey: string;
+  /** 驱动 Responses 的主模型（配置中的默认模型） */
   model: string;
-  imageModel?: string;
+  /** 实际出图的模型，写入 tools[0].model；调用方保证已回退默认值，永不为空 */
+  imageModel: string;
   image: string;
   prompt: string;
   timeoutMs?: number;
@@ -83,9 +85,12 @@ export function buildResponsesEndpoint(baseUrl: string): string {
   return `${trimmed}/v1/responses`;
 }
 
-/** 构造 image_generation 流式请求体（配置了 image_model 时指定生图模型） */
+/**
+ * 构造 image_generation 流式请求体
+ * 生图模型写在工具定义内（tools[0].model），不使用非标准的顶层 image_model 字段
+ */
 export function buildResponsesRequestBody(input: ResponsesImageInput): Record<string, unknown> {
-  const body: Record<string, unknown> = {
+  return {
     model: input.model,
     input: [
       {
@@ -98,12 +103,9 @@ export function buildResponsesRequestBody(input: ResponsesImageInput): Record<st
       },
     ],
     instructions: VERBATIM_INSTRUCTIONS,
-    tools: [{ type: 'image_generation' }],
+    tools: [{ type: 'image_generation', model: input.imageModel }],
     stream: true,
   };
-  const imageModel = typeof input.imageModel === 'string' ? input.imageModel.trim() : '';
-  if (imageModel) body.image_model = imageModel;
-  return body;
 }
 
 // ---- 脱敏与错误归类 ----
@@ -143,7 +145,7 @@ function classifyUpstreamText(text: string, secrets: string[] = []): ApiError {
 }
 
 /** 按 HTTP 状态码抛出语义化 ApiError（400 再走文本细分类），日志落脱敏后的上游详情 */
-function throwForHttpStatus(status: number, bodyText: string, secrets: string[]): never {
+export function throwForHttpStatus(status: number, bodyText: string, secrets: string[]): never {
   const detail = sanitizeDetail(bodyText, secrets);
   const suffix = detail ? `：${detail}` : '';
   console.error(`[responses-image] 模型服务返回 HTTP ${status}${suffix}`);
@@ -329,7 +331,7 @@ export async function* parseSseStream(
 // ---- 图片提取 ----
 
 /** 按魔数识别图片 mime（jpeg/png/webp），无法识别返回 null */
-function detectImageMime(buf: Buffer): string | null {
+export function detectImageMime(buf: Buffer): string | null {
   if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'jpeg';
   if (buf.length >= 4 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return 'png';
   if (buf.length >= 12 && buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP') return 'webp';
@@ -474,7 +476,7 @@ async function readBodyBytesCapped(response: Response, maxBytes: number): Promis
  * content-length 预检 + 读取期累计字节双重上限（超限抛 IMAGE_GENERATION_FAILED），
  * MIME 白名单与魔数双重校验，错误体经 readBodyTextCapped 限长读取
  */
-async function downloadImageAsDataUrl(
+export async function downloadImageAsDataUrl(
   url: string,
   doFetch: typeof fetch,
   signal: AbortSignal,

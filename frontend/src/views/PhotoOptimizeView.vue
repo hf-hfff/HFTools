@@ -15,7 +15,7 @@ import ToolIcon from '@/components/ToolIcon.vue';
 import { useToolsStore } from '@/stores/tools';
 
 /** 优化请求超时上限（与 api/ai.ts photoOptimize 默认 timeout 一致） */
-const OPTIMIZE_TIMEOUT_S = 240;
+const OPTIMIZE_TIMEOUT_S = 320;
 
 /** 四阶段标签（顺序固定，索引与 stage=1..4 对应） */
 const STAGES = ['分析原图', '整理优化方向', '生成优化图', '接收并处理结果'] as const;
@@ -481,15 +481,34 @@ function downloadResult() {
         </div>
 
         <template v-else-if="phase === 'done'">
-          <div class="compare">
-            <figure class="compare-cell">
-              <img :src="imageDataUrl" alt="原图" />
-              <figcaption>原图</figcaption>
-            </figure>
-            <figure class="compare-cell result">
-              <img :src="resultImage" alt="优化后" />
-              <figcaption>优化后</figcaption>
-            </figure>
+          <div class="compare-block">
+            <div class="compare">
+              <figure class="compare-cell">
+                <img :src="imageDataUrl" alt="原图" />
+                <figcaption>原图</figcaption>
+              </figure>
+              <figure class="compare-cell result">
+                <img :src="resultImage" alt="优化后" />
+                <!-- 下载入口：生成图右上角悬浮，仅图标（名称走 aria-label / title） -->
+                <button
+                  class="download-btn"
+                  type="button"
+                  aria-label="下载生成图"
+                  title="下载生成图"
+                  @click="downloadResult"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 3.5v11" />
+                    <path d="m7.2 10.2 4.8 4.8 4.8-4.8" />
+                    <path d="M4.5 20.5h15" />
+                  </svg>
+                </button>
+                <figcaption>优化后</figcaption>
+              </figure>
+            </div>
+            <p class="ai-disclaimer">
+              以上优化图由 AI 重绘生成，可能改变人物、文字、物体边缘和背景细节，请以生成图为准核对关键信息。
+            </p>
           </div>
         </template>
       </section>
@@ -522,14 +541,6 @@ function downloadResult() {
             <span v-for="(item, i) in analysis.avoid" :key="i" class="tag avoid">{{ item }}</span>
           </div>
         </div>
-      </section>
-
-      <!-- 成功后的操作与免责 -->
-      <section v-if="phase === 'done'" class="panel action-panel">
-        <button class="pill download-btn" @click="downloadResult">下载生成图</button>
-        <p class="ai-disclaimer">
-          以上优化图由 AI 重绘生成，可能改变人物、文字、物体边缘和背景细节，请以生成图为准核对关键信息。
-        </p>
       </section>
     </template>
 
@@ -607,6 +618,14 @@ function downloadResult() {
   .wall-photo,
   .wall-photo img {
     transition: none;
+  }
+
+  .download-btn {
+    transition: none;
+  }
+
+  .download-btn:active {
+    transform: none;
   }
 }
 
@@ -1114,7 +1133,13 @@ function downloadResult() {
   cursor: pointer;
 }
 
-/* ===== 成功对比：桌面双栏，窄屏上下堆叠 ===== */
+/* ===== 成功对比：桌面双栏，窄屏上下堆叠；免责声明留在此区域内 ===== */
+.compare-block {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .compare {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1128,6 +1153,7 @@ function downloadResult() {
 }
 
 .compare-cell {
+  position: relative;
   margin: 0;
 }
 
@@ -1245,30 +1271,70 @@ function downloadResult() {
   background: rgba(245, 108, 108, 0.08);
 }
 
-/* ===== 成功操作与 AI 免责 ===== */
-.action-panel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  padding: 22px;
-  margin-bottom: 8px;
-}
-
+/* ===== 生成图下载：右上角悬浮图标按钮 ===== */
 .download-btn {
-  height: 42px;
-  min-width: 0;
-  padding: 0 30px;
-  font-size: 14.5px;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(8, 8, 8, 0.58);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: var(--ink);
   cursor: pointer;
+  /* 常驻极轻投影：保证浅色/白底图上按钮边缘依然清晰 */
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.28),
+    0 4px 12px rgba(0, 0, 0, 0.18);
+  transition:
+    background 0.25s var(--ease),
+    border-color 0.25s var(--ease),
+    color 0.25s var(--ease),
+    box-shadow 0.25s var(--ease),
+    transform 0.25s var(--ease);
 }
 
+.download-btn svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.download-btn:hover {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: transparent;
+  color: #050505;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.22),
+    0 6px 16px rgba(0, 0, 0, 0.26);
+}
+
+.download-btn:active {
+  transform: translateY(1px);
+}
+
+.download-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
+}
+
+/* ===== AI 重绘免责（置于原图 / 优化后区域块内） ===== */
 .ai-disclaimer {
   margin: 0;
-  text-align: center;
   font-size: 12px;
+  line-height: 1.7;
   color: var(--muted);
-  max-width: 640px;
 }
 
 /* ===== 未找到态 ===== */

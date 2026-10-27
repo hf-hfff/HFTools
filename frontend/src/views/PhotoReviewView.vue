@@ -10,7 +10,7 @@ import ToolIcon from '@/components/ToolIcon.vue';
 import { useToolsStore } from '@/stores/tools';
 
 /** 点评请求超时上限（与 api/ai.ts 单请求 timeout 一致） */
-const REVIEW_TIMEOUT_S = 120;
+const REVIEW_TIMEOUT_S = 180;
 
 /** 等待期轮播文案（点评生成通常 10-60 秒，轮播缓解焦虑） */
 const FUN_STATUS = [

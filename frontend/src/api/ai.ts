@@ -8,13 +8,13 @@ export interface PhotoReviewResult {
 
 /**
  * 提交照片点评：image 为 base64 data URL，note 为可选拍摄描述
- * 单独放宽 timeout（点评生成为长文本任务，通常 10-60 秒）
+ * 单独放宽 timeout（点评生成为长文本任务；大图上传 + 推理通常 10-90 秒，须大于后端 150s 上限）
  */
 export async function reviewPhoto(image: string, note?: string): Promise<PhotoReviewResult> {
   const res = await http.post<ApiResponse<PhotoReviewResult>>(
     '/ai/photo-review',
     { image, note },
-    { timeout: 120_000 },
+    { timeout: 180_000 },
   );
   return res.data.data;
 }
@@ -41,7 +41,7 @@ export async function optimizePrompt(
   const res = await http.post<ApiResponse<PromptOptimizeResult>>(
     '/ai/prompt-optimize',
     params,
-    { timeout: 120_000 },
+    { timeout: 180_000 },
   );
   return res.data.data;
 }
@@ -107,12 +107,12 @@ export interface PhotoOptimizeResult {
   result_image: string;
 }
 
-/** 照片 AI 优化链路超时（ms）：须大于后端最坏链路（阶段一分析 ≈90s + 生图 ≈120s ≈ 210s），完整提交与仅重发生图共用 */
-const PHOTO_OPTIMIZE_TIMEOUT_MS = 240_000;
+/** 照片 AI 优化链路超时（ms）：须大于后端最坏链路（阶段一分析 ≈150s + 生图 ≈150s），完整提交与仅重发生图共用 */
+const PHOTO_OPTIMIZE_TIMEOUT_MS = 320_000;
 
 /**
  * 提交照片 AI 优化：单次 POST 串联「分析 → 生图」两阶段
- * timeout 默认 240s（见 PHOTO_OPTIMIZE_TIMEOUT_MS）
+ * timeout 默认 320s（见 PHOTO_OPTIMIZE_TIMEOUT_MS）
  */
 export async function photoOptimize(
   params: PhotoOptimizeParams,

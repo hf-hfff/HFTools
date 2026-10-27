@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { getDecryptedConfig } from './model-configs.service.js';
+import { getResolvedConfig } from './model-configs.service.js';
 import { chatCompletion, type ChatMessage } from './llm-client.service.js';
 import { ApiError } from '../utils/response.js';
 
@@ -65,9 +65,9 @@ export async function optimizePrompt(
   }
 
   // ---- 模型配置 ----
-  const config = getDecryptedConfig('llm');
-  if (!config?.base_url || !config.api_key) {
-    throw new ApiError(400, 'MODEL_NOT_CONFIGURED', '模型服务（llm）尚未配置，请先在管理平台完成配置');
+  const config = getResolvedConfig();
+  if (!config.base_url || !config.api_key || !config.default_model) {
+    throw new ApiError(400, 'MODEL_NOT_CONFIGURED', '模型服务尚未配置，请先在管理平台完成配置');
   }
 
   // ---- 组装消息（单轮：system 模板 + 用户原始提示词）----
@@ -77,7 +77,12 @@ export async function optimizePrompt(
   ];
 
   return chatCompletion(
-    { base_url: config.base_url, api_key: config.api_key, models: config.models },
+    {
+      base_url: config.base_url,
+      api_key: config.api_key,
+      model: config.default_model,
+      reasoning_effort: config.reasoning_effort,
+    },
     messages,
   );
 }

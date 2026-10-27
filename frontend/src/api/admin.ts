@@ -1,5 +1,5 @@
 import { http } from './http';
-import type { ApiResponse, ModelConfig, ModelType, Tool } from '@/types';
+import type { ApiResponse, ModelConfig, ReasoningEffort, Tool, UpstreamModel } from '@/types';
 
 /** 管理员登录，返回 JWT */
 export async function adminLogin(username: string, password: string): Promise<string> {
@@ -22,48 +22,38 @@ export async function updateToolEnabled(id: string, enabled: boolean): Promise<T
   return res.data.data;
 }
 
-/** 获取三类模型配置（api_key 脱敏） */
-export async function getModelConfigs(): Promise<ModelConfig[]> {
-  const res = await http.get<ApiResponse<ModelConfig[]>>('/admin/model-configs');
-  return res.data.data ?? [];
-}
-
-/** 保存模型配置的请求体 */
-export interface SaveModelConfigPayload {
-  base_url: string;
-  /**
-   * 留空（null）表示不传该字段，后端保持原密钥不变；
-   * 输入新值时才携带，避免误清空
-   */
-  api_key?: string;
-  models: string[];
-  /** 生图专用可选扩展（非密钥明文），仅 image-gen 携带 */
-  image_model?: string;
-}
-
-/** 保存某类模型配置 */
-export async function saveModelConfig(
-  type: ModelType,
-  payload: SaveModelConfigPayload,
-): Promise<ModelConfig> {
-  const res = await http.put<ApiResponse<ModelConfig>>(`/admin/model-configs/${type}`, payload);
+/** 获取模型配置（单对象，api_key 脱敏） */
+export async function getModelConfig(): Promise<ModelConfig> {
+  const res = await http.get<ApiResponse<ModelConfig>>('/admin/model-config');
   return res.data.data;
 }
 
-/** Responses 能力测试结果 */
-export interface TestResponsesResult {
-  ok: boolean;
+/** 保存模型配置的请求体（字段未提供表示保持不变） */
+export interface SaveModelConfigPayload {
+  base_url: string;
+  /** 留空表示不携带该字段，后端保持原密钥不变 */
+  api_key?: string;
+  default_model: string;
+  /** 空串表示清空，运行时回退默认生图模型 */
+  image_model: string;
+  reasoning_effort: ReasoningEffort;
 }
 
-/**
- * 测试 image-gen 配置的 Responses API 连通能力（后端以微型测试图发起一次真实请求）
- * 单独放宽 timeout（后端测试超时上限 60s）
- */
-export async function testResponsesApi(): Promise<TestResponsesResult> {
-  const res = await http.post<ApiResponse<TestResponsesResult>>(
-    '/admin/model-configs/test-responses',
-    {},
-    { timeout: 65_000 },
-  );
+/** 保存模型配置 */
+export async function saveModelConfig(payload: SaveModelConfigPayload): Promise<ModelConfig> {
+  const res = await http.put<ApiResponse<ModelConfig>>('/admin/model-config', payload);
+  return res.data.data;
+}
+
+/** 上游模型列表（不缓存，仅本次返回） */
+export interface UpstreamModelsResult {
+  models: UpstreamModel[];
+  total: number;
+  fetched_at: string;
+}
+
+/** 拉取上游模型列表：仅使用已保存的配置，请求体为空 */
+export async function fetchUpstreamModels(): Promise<UpstreamModelsResult> {
+  const res = await http.post<ApiResponse<UpstreamModelsResult>>('/admin/model-config/models', {});
   return res.data.data;
 }

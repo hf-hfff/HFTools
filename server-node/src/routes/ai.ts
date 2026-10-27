@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getDecryptedConfig, type ModelType } from '../services/model-configs.service.js';
+import { getResolvedConfig } from '../services/model-configs.service.js';
 import { reviewPhoto } from '../services/photo-review.service.js';
 import { optimizePrompt } from '../services/prompt-optimize.service.js';
 import { optimizePhoto, regeneratePhoto, PhotoOptimizeError } from '../services/photo-optimize.service.js';
@@ -9,12 +9,6 @@ import { sendOk, ApiError } from '../utils/response.js';
  * AI 调用代理层：POST /api/ai/:task
  * 具体业务路由（如 photo-review）须注册在通用 :task 之前
  */
-
-/** task -> 模型配置类型映射：未列出的 task 默认使用 llm */
-const TASK_CONFIG_TYPE: Record<string, ModelType> = {
-  'git-trending': 'dify',
-  'company-research': 'dify',
-};
 
 export const aiRouter = Router();
 
@@ -92,22 +86,13 @@ aiRouter.post('/api/ai/prompt-optimize', async (req, res, next) => {
   }
 });
 
-/** 通用代理入口（预留）：校验模型配置就绪，未实现真实调用的 task 返回 501 */
+/** 通用代理入口（预留）：校验统一模型配置就绪，未实现真实调用的 task 返回 501 */
 aiRouter.post('/api/ai/:task', (req, res) => {
   const { task } = req.params;
-  const type = TASK_CONFIG_TYPE[task] ?? 'llm';
-  const config = getDecryptedConfig(type);
-  if (!config || !config.api_key) {
-    throw new ApiError(
-      400,
-      'MODEL_NOT_CONFIGURED',
-      `模型服务（${type}）尚未配置，请先在管理平台完成配置`,
-    );
+  const config = getResolvedConfig();
+  if (!config.base_url || !config.api_key || !config.default_model) {
+    throw new ApiError(400, 'MODEL_NOT_CONFIGURED', '模型服务尚未配置，请先在管理平台完成配置');
   }
   // 配置就绪：本期不实现真实调用，返回 501
-  throw new ApiError(
-    501,
-    'NOT_IMPLEMENTED',
-    `AI 调用代理（${task}）暂未实现，模型配置（${type}）已就绪`,
-  );
+  throw new ApiError(501, 'NOT_IMPLEMENTED', `AI 调用代理（${task}）暂未实现，模型配置已就绪`);
 });
