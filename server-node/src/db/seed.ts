@@ -14,7 +14,7 @@ const TOOL_SEEDS: ReadonlyArray<{
   status: string;
 }> = [
   { id: 'photo-review', name: '照片点评', category: 'photography', icon: 'camera', status: 'active' },
-  { id: 'photo-enhance', name: '照片AI优化', category: 'photography', icon: 'magic-stick', status: 'placeholder' },
+  { id: 'photo-enhance', name: '照片AI优化', category: 'photography', icon: 'magic-stick', status: 'active' },
   { id: 'gear-params', name: '摄影器材参数', category: 'photography', icon: 'suitcase', status: 'placeholder' },
   { id: 'photo-basics', name: '摄影基础知识', category: 'photography', icon: 'reading', status: 'placeholder' },
   { id: 'prompt-engineering', name: '提示词优化', category: 'ai-eng', icon: 'edit-pen', status: 'active' },

@@ -31,6 +31,8 @@ export interface ModelConfig {
   base_url: string | null;
   api_key: string | null;
   models: string[];
+  /** 生图专用可选扩展：上游要求 image_model 参数时填写（非密钥，仅 image-gen） */
+  image_model?: string | null;
   updated_at: string | null;
 }
 

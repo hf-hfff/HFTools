@@ -36,6 +36,7 @@ export function initTables(): void {
       base_url TEXT,
       api_key TEXT,
       models TEXT,
+      image_model TEXT,
       updated_at TEXT
     );
 
@@ -45,4 +46,12 @@ export function initTables(): void {
       password_hash TEXT NOT NULL
     );
   `);
+
+  // 幂等迁移：旧库补 image_model 列（image-gen 可选扩展字段，明文非密钥）
+  const modelConfigCols = db.prepare('PRAGMA table_info(model_configs)').all() as Array<{
+    name: string;
+  }>;
+  if (!modelConfigCols.some((col) => col.name === 'image_model')) {
+    db.exec('ALTER TABLE model_configs ADD COLUMN image_model TEXT');
+  }
 }

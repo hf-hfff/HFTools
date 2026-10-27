@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getDecryptedConfig, type ModelType } from '../services/model-configs.service.js';
 import { reviewPhoto } from '../services/photo-review.service.js';
 import { optimizePrompt } from '../services/prompt-optimize.service.js';
+import { optimizePhoto, regeneratePhoto, PhotoOptimizeError } from '../services/photo-optimize.service.js';
 import { sendOk, ApiError } from '../utils/response.js';
 
 /**
@@ -25,6 +26,53 @@ aiRouter.post('/api/ai/photo-review', async (req, res, next) => {
     sendOk(res, { review });
   } catch (err) {
     // Express 4 不自动捕获 async rejection，需显式交给全局错误处理
+    next(err);
+  }
+});
+
+/**
+ * 照片 AI 优化：POST /api/ai/photo-optimize，body: { image: dataURL, scene, note? }
+ * 全局 errorHandler 对 ApiError 固定回 data:null，会丢 PhotoOptimizeError 携带的 analysis，
+ * 故在此显式处理：错误响应沿用其状态码/code/message，data 放 analysis 供前端展示
+ */
+aiRouter.post('/api/ai/photo-optimize', async (req, res, next) => {
+  try {
+    const { analysis, result_image } = await optimizePhoto(req.body);
+    sendOk(res, { analysis, result_image });
+  } catch (err) {
+    if (err instanceof PhotoOptimizeError) {
+      res.status(err.status).json({
+        code: err.code,
+        message: err.message,
+        data: { analysis: err.details?.analysis ?? null },
+      });
+      return;
+    }
+    // 输入校验/配置缺失等 ApiError 及未知错误走全局 errorHandler
+    next(err);
+  }
+});
+
+/**
+ * 仅重发生图（手动重试）：POST /api/ai/photo-optimize/retry
+ * body: { image: dataURL, scene, note?, analysis }
+ * 生成阶段失败时前端持有 analysis，此端点跳过阶段一直接重绘（后端重新校验 analysis，不信任前端）；
+ * 错误处理与 photo-optimize 同款：PhotoOptimizeError 显式回包 data.analysis，其余交全局 errorHandler
+ * 该路径为两段（photo-optimize/retry），不会被下方通用 /:task 匹配，仍注册在其前面稳妥
+ */
+aiRouter.post('/api/ai/photo-optimize/retry', async (req, res, next) => {
+  try {
+    const { analysis, result_image } = await regeneratePhoto(req.body);
+    sendOk(res, { analysis, result_image });
+  } catch (err) {
+    if (err instanceof PhotoOptimizeError) {
+      res.status(err.status).json({
+        code: err.code,
+        message: err.message,
+        data: { analysis: err.details?.analysis ?? null },
+      });
+      return;
+    }
     next(err);
   }
 });

@@ -21,6 +21,11 @@ const router = createRouter({
           component: () => import('@/views/PhotoReviewView.vue'),
         },
         {
+          path: 'tools/photo-enhance',
+          name: 'photo-enhance',
+          component: () => import('@/views/PhotoOptimizeView.vue'),
+        },
+        {
           path: 'tools/prompt-engineering',
           name: 'prompt-engineering',
           component: () => import('@/views/PromptOptimizeView.vue'),

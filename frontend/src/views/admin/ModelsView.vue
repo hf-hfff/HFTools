@@ -2,7 +2,7 @@
 // 模型配置：llm / image-gen / dify 三类配置卡片，保存后回显脱敏 API key
 import { onMounted, reactive, ref } from 'vue';
 import { ElMessage } from 'element-plus';
-import { getModelConfigs, saveModelConfig } from '@/api/admin';
+import { getModelConfigs, saveModelConfig, testResponsesApi } from '@/api/admin';
 import type { ModelConfig, ModelType } from '@/types';
 
 /** 单个配置表单的本地状态 */
@@ -13,6 +13,8 @@ interface ConfigFormState {
   /** 后端回显的脱敏密钥（null 表示未配置） */
   maskedApiKey: string | null;
   models: string[];
+  /** 生图专用可选 image_model（仅 image-gen 使用） */
+  imageModel: string;
   updatedAt: string | null;
 }
 
@@ -32,7 +34,7 @@ const TYPE_META: Array<{
   {
     type: 'image-gen',
     title: '生图模型',
-    description: '图生图能力（照片 AI 优化），需支持 img2img',
+    description: '生图能力（照片 AI 优化），基于 Responses API image_generation',
     modelsPlaceholder: '输入模型名后回车添加',
   },
   {
@@ -45,6 +47,7 @@ const TYPE_META: Array<{
 
 const loading = ref(true);
 const saving = ref<Record<string, boolean>>({});
+const testingResponses = ref(false);
 
 /** 三类配置各自的表单状态（初始化为空，加载后填充） */
 const emptyForm = (): ConfigFormState => ({
@@ -52,6 +55,7 @@ const emptyForm = (): ConfigFormState => ({
   apiKeyInput: '',
   maskedApiKey: null,
   models: [],
+  imageModel: '',
   updatedAt: null,
 });
 
@@ -80,6 +84,7 @@ function fillForms(configs: ModelConfig[]) {
     state.apiKeyInput = '';
     state.maskedApiKey = config.api_key;
     state.models = [...config.models];
+    state.imageModel = config.image_model ?? '';
     state.updatedAt = config.updated_at;
   }
 }
@@ -95,6 +100,8 @@ async function handleSave(type: ModelType) {
       // 仅在用户输入了新密钥时携带该字段，避免误清空
       ...(trimmedKey ? { api_key: trimmedKey } : {}),
       models: state.models,
+      // image_model 仅 image-gen 携带（空串即清空）
+      ...(type === 'image-gen' ? { image_model: state.imageModel.trim() } : {}),
     });
     // 保存成功后回显后端脱敏结果
     state.maskedApiKey = saved.api_key;
@@ -105,6 +112,19 @@ async function handleSave(type: ModelType) {
     // 错误提示已由 axios 拦截器统一处理
   } finally {
     saving.value[type] = false;
+  }
+}
+
+/** 测试 Responses 能力：成功/失败均由拦截器或此处提示（失败文案为后端脱敏后的错误码对应 message） */
+async function handleTestResponses() {
+  testingResponses.value = true;
+  try {
+    await testResponsesApi();
+    ElMessage.success('Responses 能力测试通过');
+  } catch {
+    // 错误提示已由 axios 拦截器统一展示后端 message
+  } finally {
+    testingResponses.value = false;
   }
 }
 </script>
@@ -120,6 +140,14 @@ async function handleSave(type: ModelType) {
       </template>
 
       <el-form label-position="top" class="config-form">
+        <el-alert
+          v-if="meta.type === 'image-gen'"
+          type="warning"
+          :closable="false"
+          show-icon
+          class="responses-notice"
+          title="照片 AI 优化仅支持 Responses API：请确保所配置的 API base_url 支持 /v1/responses、图片输入、SSE 流式响应与 image_generation tool；文本模型 ID 与 image_model 均由你自行配置，不写死。"
+        />
         <el-row :gutter="24">
           <el-col :span="12">
             <el-form-item label="Base URL">
@@ -160,10 +188,24 @@ async function handleSave(type: ModelType) {
             class="models-select"
           />
         </el-form-item>
+        <el-form-item v-if="meta.type === 'image-gen'" label="Image Model（可选）">
+          <el-input
+            v-model="forms[meta.type].imageModel"
+            placeholder="可选；仅当上游要求 image_model 参数时填写"
+            clearable
+          />
+        </el-form-item>
         <div class="form-footer">
           <span class="updated-at">
             {{ forms[meta.type].updatedAt ? `更新于 ${forms[meta.type].updatedAt}` : '尚未配置' }}
           </span>
+          <el-button
+            v-if="meta.type === 'image-gen'"
+            :loading="testingResponses"
+            @click="handleTestResponses"
+          >
+            测试 Responses 能力
+          </el-button>
           <el-button
             type="primary"
             :loading="saving[meta.type]"
@@ -207,6 +249,11 @@ async function handleSave(type: ModelType) {
 
 .models-select {
   width: 100%;
+}
+
+.responses-notice {
+  margin-bottom: 16px;
+  line-height: 1.6;
 }
 
 .form-footer {

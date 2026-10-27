@@ -16,8 +16,9 @@ export function createApp(): express.Express {
   const app = express();
 
   app.use(cors({ origin: CORS_ORIGIN }));
-  // 照片点评带 base64 图片，须在全局 json 解析之前按路径放宽 body 上限（express.json 跳过已解析请求）
+  // 照片点评/照片AI优化带 base64 图片，须在全局 json 解析之前按路径放宽 body 上限（express.json 跳过已解析请求）
   app.use('/api/ai/photo-review', express.json({ limit: '12mb' }));
+  app.use('/api/ai/photo-optimize', express.json({ limit: '12mb' }));
   app.use(express.json());
 
   // 静态资源（/static/photo-review/*.gif）

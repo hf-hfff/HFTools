@@ -15,6 +15,8 @@ export interface ModelConfig {
   base_url: string | null;
   api_key: string | null;
   models: string[];
+  /** 生图专用可选扩展：上游要求 image_model 参数时填写（非密钥，明文；仅 image-gen 语义） */
+  image_model?: string | null;
   updated_at: string | null;
 }
 
@@ -23,12 +25,13 @@ interface ModelConfigRow {
   base_url: string | null;
   api_key: string | null;
   models: string | null;
+  image_model: string | null;
   updated_at: string | null;
 }
 
 function toConfig(row: ModelConfigRow | undefined, type: ModelType): ModelConfig {
   if (!row) {
-    return { type, base_url: null, api_key: null, models: [], updated_at: null };
+    return { type, base_url: null, api_key: null, models: [], image_model: null, updated_at: null };
   }
   let models: string[] = [];
   try {
@@ -46,7 +49,14 @@ function toConfig(row: ModelConfigRow | undefined, type: ModelType): ModelConfig
       maskedKey = '****';
     }
   }
-  return { type, base_url: row.base_url, api_key: maskedKey, models, updated_at: row.updated_at };
+  return {
+    type,
+    base_url: row.base_url,
+    api_key: maskedKey,
+    models,
+    image_model: row.image_model ?? null,
+    updated_at: row.updated_at,
+  };
 }
 
 /** 查询全部三类配置（含未配置项），api_key 脱敏返回 */
@@ -61,7 +71,12 @@ export function listModelConfigs(): ModelConfig[] {
 /** 内部使用：读取某类配置并解密 api_key；不存在返回 null */
 export function getDecryptedConfig(
   type: ModelType,
-): { base_url: string | null; api_key: string | null; models: string[] } | null {
+): {
+  base_url: string | null;
+  api_key: string | null;
+  models: string[];
+  image_model: string | null;
+} | null {
   const row = db.prepare('SELECT * FROM model_configs WHERE type = ?').get(type) as
     | ModelConfigRow
     | undefined;
@@ -81,14 +96,16 @@ export function getDecryptedConfig(
       apiKey = null;
     }
   }
-  return { base_url: row.base_url, api_key: apiKey, models };
+  return { base_url: row.base_url, api_key: apiKey, models, image_model: row.image_model ?? null };
 }
 
-/** PUT 请求体：三字段均可选，未提供的字段保持不变 */
+/** PUT 请求体：各字段均可选，未提供的字段保持不变 */
 export interface SaveModelConfigInput {
   base_url?: string | null;
   api_key?: string | null;
   models?: string[];
+  /** 生图专用可选扩展（非密钥明文）；仅 image-gen 写入，空串视为清空 */
+  image_model?: string | null;
 }
 
 /**
@@ -104,6 +121,8 @@ export function saveModelConfig(type: ModelType, input: SaveModelConfigInput): M
   const models = JSON.stringify(
     input.models !== undefined ? input.models.map(String) : existing ? safeParseModels(existing.models) : [],
   );
+  const imageModel =
+    input.image_model !== undefined ? input.image_model || null : existing?.image_model ?? null;
   let apiKeyCipher: string | null;
   if ('api_key' in input) {
     apiKeyCipher = input.api_key ? encrypt(input.api_key) : null;
@@ -113,14 +132,15 @@ export function saveModelConfig(type: ModelType, input: SaveModelConfigInput): M
   const updatedAt = new Date().toISOString();
 
   db.prepare(
-    `INSERT INTO model_configs (type, base_url, api_key, models, updated_at)
-     VALUES (?, ?, ?, ?, ?)
+    `INSERT INTO model_configs (type, base_url, api_key, models, image_model, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT(type) DO UPDATE SET
        base_url = excluded.base_url,
        api_key = excluded.api_key,
        models = excluded.models,
+       image_model = excluded.image_model,
        updated_at = excluded.updated_at`,
-  ).run(type, baseUrl, apiKeyCipher, models, updatedAt);
+  ).run(type, baseUrl, apiKeyCipher, models, imageModel, updatedAt);
 
   const saved = db.prepare('SELECT * FROM model_configs WHERE type = ?').get(type) as
     | ModelConfigRow

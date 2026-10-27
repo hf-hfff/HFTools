@@ -37,6 +37,8 @@ export interface SaveModelConfigPayload {
    */
   api_key?: string;
   models: string[];
+  /** 生图专用可选扩展（非密钥明文），仅 image-gen 携带 */
+  image_model?: string;
 }
 
 /** 保存某类模型配置 */
@@ -45,5 +47,23 @@ export async function saveModelConfig(
   payload: SaveModelConfigPayload,
 ): Promise<ModelConfig> {
   const res = await http.put<ApiResponse<ModelConfig>>(`/admin/model-configs/${type}`, payload);
+  return res.data.data;
+}
+
+/** Responses 能力测试结果 */
+export interface TestResponsesResult {
+  ok: boolean;
+}
+
+/**
+ * 测试 image-gen 配置的 Responses API 连通能力（后端以微型测试图发起一次真实请求）
+ * 单独放宽 timeout（后端测试超时上限 60s）
+ */
+export async function testResponsesApi(): Promise<TestResponsesResult> {
+  const res = await http.post<ApiResponse<TestResponsesResult>>(
+    '/admin/model-configs/test-responses',
+    {},
+    { timeout: 65_000 },
+  );
   return res.data.data;
 }
