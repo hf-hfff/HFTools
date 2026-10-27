@@ -34,7 +34,7 @@
 | --- | --- | --- |
 | ![首页](screenshots/home.png) | ![照片点评](screenshots/photo-review.png) | ![管理平台登录](screenshots/admin-login.png) |
 
-> 截图说明：首页为深色影棚风格首屏；照片点评内置照片墙背景 + 多模态 LLM 分析与 Markdown 点评渲染；管理平台以独立登录入口进入，负责工具开关与 LLM/生图/Dify 统一配置。
+> 截图说明：首页为深色影棚风格首屏；照片点评内置照片墙背景 + 多模态 LLM 分析与 Markdown 点评渲染；管理平台以独立登录入口进入，负责工具开关与统一模型配置（Base URL / API Key / 默认模型 / 生图模型 / 推理强度）。
 
 ---
 
@@ -45,7 +45,7 @@
 - **后端**：Node.js 作为 **API 网关**（Express + SQLite），承载全部面向前端接口与 AI 调用代理；Python（`worker-python`）承担文档解析、图片处理等生态优势任务（暂未接入编排）
 - **前端**：Vue3 + Vite + Pinia + Vue Router，UI 组件库 Element Plus；用户端与管理平台同仓
 - **数据库**：SQLite（工具开关、模型配置、内容数据），`better-sqlite3`
-- **模型接入**：OpenAI 兼容接口直连 LLM；生图走 Responses API（`/v1/responses` + `image_generation` tool + SSE）；复杂多步流程可选走 Dify
+- **模型接入**：单一 OpenAI 兼容配置（Base URL / API Key / 默认模型 / 生图模型 / 推理强度），对话走 `chat/completions`，生图走 `images/edits` 图生图；另保留 Responses API 适配器备用
 
 ```
 hftools/
@@ -53,7 +53,7 @@ hftools/
 ├── server-node/       # Node API 网关 + SQLite + AI 调用代理
 │   ├── src/
 │   │   ├── routes/    # REST 路由（tools / ai / admin / health）
-│   │   ├── services/  # LLM 客户端、照片点评/优化、Responses 生图 adapter、模型配置、加密
+│   │   ├── services/  # LLM 客户端、照片点评/优化、生图 client（images/edits）、模型配置、加密
 │   │   └── db/        # SQLite 初始化与种子数据
 │   └── assets/        # skill 资产与静态资源（照片点评 prompt、动图等）
 ├── worker-python/     # Python 任务（预留）
@@ -88,13 +88,15 @@ pnpm dev
 
 ### 模型配置
 
-在【管理平台 → 模型配置】中统一配置（建议先完成配置，工具才能正常调用 AI）：
+在【管理平台 → 模型配置】中完成一份统一的 OpenAI 兼容配置，所有工具共用（建议先完成配置，工具才能正常调用 AI）：
 
-- **LLM**：OpenAI 兼容的 `base_url`、`api_key`、模型名 —— 照片点评、提示词优化等单轮能力直连调用
-- **生图**：需支持 Responses API 的模型服务 —— `/v1/responses`、图片输入、SSE 流式响应与 `image_generation` tool 均可用；文本模型 ID 与可选 `image_model` 均由管理员自行填写，不写死。配置完成可用「测试 Responses 能力」发起一次微型真实请求验证链路
-- **Dify**：多步骤流程（如简历优化）走 Dify 应用接口
+- **Base URL / API Key**：OpenAI 兼容服务地址与密钥；保存时只做格式校验，不发起探测请求
+- **默认模型**：对话与多模态分析统一使用（照片点评、提示词优化、照片优化阶段一）
+- **生图模型**：图生图（`/v1/images/edits`）使用的模型，留空时回退默认值
+- **推理强度**：`low / medium / high`，仅对 `o1+` / `gpt-5*` 系列模型透传，其余模型自动忽略
+- **模型列表**：页面内可一键拉取上游 `/v1/models`（不落库、不缓存），用于选择与复制模型名
 
-> ⚠️ 安全说明：前端零密钥，所有 AI/外部 API 调用均经后端代理；`api_key` 在管理端保存后经 **AES 加密落盘**（`SECRET_KEY` 可环境变量覆盖）；`.env`、`*.db` 一律不纳入版本管理。
+> ⚠️ 安全说明：前端零密钥，所有 AI/外部 API 调用均经后端代理；`api_key` 在管理端保存后经 **AES 加密落盘**（`SECRET_KEY` 可环境变量覆盖）；`.env`、`*.db`、`server-node/data/` 一律不纳入版本管理。
 
 ---
 
@@ -105,7 +107,7 @@ pnpm dev
 - **访问路径**：`/tools/photo-enhance`
 - **输入**：单张 `jpg/png/webp`（≤ 8MB）；优化描述可选（≤ 500 字）
 - **优化场景**：通用优化、小红书、朋友圈、抖音、视频封面或配图、旅行记录、人物肖像、商品展示、餐饮美食、风景摄影、作品集（11 个固定场景）
-- **处理流程**：多模态 LLM 分析原图 → 结构化优化方向（构图裁剪 / 影调色彩 / 亮度曝光 / 内容增删 / 整体风格 / 平台适配，含必须保留与禁止出现项）→ 组装最终 prompt → Responses API `image_generation` 重绘
+- **处理流程**：多模态 LLM 分析原图 → 结构化优化方向（构图裁剪 / 影调色彩 / 亮度曝光 / 内容增删 / 整体风格 / 平台适配，含必须保留与禁止出现项）→ 组装最终 prompt → `images/edits` 图生图重绘
 - **输出内容**：原图与成图对比、优化方向摘要，支持下载结果图
 - **失败重试**：生成失败不自动重试；分析已完成时可手动仅重发生图（`POST /api/ai/photo-optimize/retry`），不重复消耗分析
 - **处理方式**：单次仅生成 1 张；不保存原图、成图、描述与完整 prompt
