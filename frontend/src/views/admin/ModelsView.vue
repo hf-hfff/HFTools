@@ -213,7 +213,7 @@ function formatTime(value: string | null): string {
             </li>
             <li>默认模型需支持多模态图片输入（照片点评、照片优化分析），并能作为 Responses 主模型调用图片工具</li>
             <li>
-              生图模型须为上游实际可用的图像模型（以拉取列表为准，如
+              生图模型须为上游实际可用的图像模型；多数中转的模型列表只含对话模型，**若列表中没有图像模型，请直接手动填写**（如
               <code>gpt-image-2</code> / <code>gpt-image-2.5-*</code>）；留空按
               {{ DEFAULT_IMAGE_MODEL_HINT }} 出图，填了密钥不支持的模型会导致照片 AI 优化失败
             </li>
