@@ -124,6 +124,19 @@ body {
   opacity: 0.75;
 }
 
+/* ===== 玻璃面板：叠在页面背景画廊之上，半透明 + 背景模糊 =====
+   背景图会缓慢漂移，正文块必须有稳定底衬，否则文字在明暗交界处无法阅读 */
+.user-layout .glass {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(18, 18, 20, 0.76), rgba(7, 7, 8, 0.88));
+  -webkit-backdrop-filter: blur(20px) saturate(118%);
+  backdrop-filter: blur(20px) saturate(118%);
+  box-shadow:
+    0 30px 70px -42px rgba(0, 0, 0, 0.95),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
 /* ===== 用户端内 Element Plus 深色适配 ===== */
 .user-layout ::selection {
   background: #fafafa;

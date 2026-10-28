@@ -28,6 +28,7 @@ interface LegacyModelConfigRow {
  * - model_config  模型配置（单行 id=1，api_key 密文落盘）
  * - model_configs 旧版配置表（v2 起只读保留，供追溯与回滚）
  * - admin_users   管理员账号（密码 bcrypt 哈希）
+ * - redraw_*      影像 AI 重绘（模板 / 模板示例图 / 历史记录）；图片落盘，库内只存相对路径
  */
 export function initTables(): void {
   db.exec(`
@@ -56,6 +57,33 @@ export function initTables(): void {
       username TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS redraw_templates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      body TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_redraw_templates_name ON redraw_templates(name);
+
+    CREATE TABLE IF NOT EXISTS redraw_template_previews (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      template_id INTEGER NOT NULL,
+      path TEXT NOT NULL,
+      seq INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_redraw_previews_tpl ON redraw_template_previews(template_id);
+
+    CREATE TABLE IF NOT EXISTS redraw_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source_path TEXT NOT NULL,
+      result_path TEXT NOT NULL,
+      prompt TEXT NOT NULL,
+      template_id INTEGER,
+      source_bytes INTEGER NOT NULL DEFAULT 0,
+      result_bytes INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_redraw_history_created ON redraw_history(created_at DESC);
   `);
 
   // 幂等迁移：旧库补 image_model 列（image-gen 可选扩展字段，明文非密钥）

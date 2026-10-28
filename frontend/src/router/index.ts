@@ -26,6 +26,11 @@ const router = createRouter({
           component: () => import('@/views/PhotoOptimizeView.vue'),
         },
         {
+          path: 'tools/image-redraw',
+          name: 'image-redraw',
+          component: () => import('@/views/ImageRedrawView.vue'),
+        },
+        {
           path: 'tools/prompt-engineering',
           name: 'prompt-engineering',
           component: () => import('@/views/PromptOptimizeView.vue'),

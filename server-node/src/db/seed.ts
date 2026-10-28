@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import { db } from './index.js';
 
 /**
- * 工具种子数据：10 个工具按规划顺序注册
+ * 工具种子数据：11 个工具按规划顺序注册
  * route 为前端路由路径；icon 存 Element Plus 图标名（kebab-case，前端 ToolIcon 组件渲染）
  * status 为工具当前状态（active=已上线 / placeholder=开发中），种子变更时对已有记录做幂等同步
  */
@@ -15,6 +15,7 @@ const TOOL_SEEDS: ReadonlyArray<{
 }> = [
   { id: 'photo-review', name: '照片点评', category: 'photography', icon: 'camera', status: 'active' },
   { id: 'photo-enhance', name: '照片AI优化', category: 'photography', icon: 'magic-stick', status: 'active' },
+  { id: 'image-redraw', name: '影像AI重绘', category: 'photography', icon: 'redraw', status: 'active' },
   { id: 'gear-params', name: '摄影器材参数', category: 'photography', icon: 'suitcase', status: 'placeholder' },
   { id: 'photo-basics', name: '摄影基础知识', category: 'photography', icon: 'reading', status: 'placeholder' },
   { id: 'prompt-engineering', name: '提示词优化', category: 'ai-eng', icon: 'edit-pen', status: 'active' },
@@ -27,8 +28,9 @@ const TOOL_SEEDS: ReadonlyArray<{
 
 /**
  * 写入工具种子数据：幂等（按主键 id 忽略已存在记录）
- * enabled=1、sort_order 按数组顺序 1-10；status / icon 以种子为准做幂等同步
- * （INSERT OR IGNORE 不会更新已有记录，placeholder→active 上线、emoji→图标名迁移均需显式 UPDATE）
+ * enabled=1、sort_order 按数组顺序 1-11；status / icon / name / sort_order 以种子为准做幂等同步
+ * （INSERT OR IGNORE 不会更新已有记录，placeholder→active 上线、emoji→图标名迁移、数组中间插入新工具
+ *  导致的排序错位均需显式 UPDATE）
  */
 export function seedTools(): void {
   const insertStmt = db.prepare(
@@ -44,12 +46,17 @@ export function seedTools(): void {
   const updateNameStmt = db.prepare(
     `UPDATE tools SET name = ? WHERE id = ? AND name <> ?`,
   );
+  // 数组中间插入新工具时其余工具 sort_order 会整体后移，不同步会出现撞号导致排序不稳定
+  const updateOrderStmt = db.prepare(
+    `UPDATE tools SET sort_order = ? WHERE id = ? AND sort_order <> ?`,
+  );
   const run = db.transaction(() => {
     TOOL_SEEDS.forEach((tool, index) => {
       insertStmt.run(tool.id, tool.name, tool.category, `/tools/${tool.id}`, tool.icon, tool.status, index + 1);
       updateStatusStmt.run(tool.status, tool.id, tool.status);
       updateIconStmt.run(tool.icon, tool.id, tool.icon);
       updateNameStmt.run(tool.name, tool.id, tool.name);
+      updateOrderStmt.run(index + 1, tool.id, index + 1);
     });
   });
   run();

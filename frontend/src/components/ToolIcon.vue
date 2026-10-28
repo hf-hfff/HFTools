@@ -2,6 +2,7 @@
 // 工具图标：DB 的 icon 字段存图标名（kebab-case），此处映射为 Element Plus 线性图标
 // 线性单色风格，颜色随 currentColor，适配深色电影风 / 管理端浅色两套主题；未知图标回退 Grid
 import { computed, markRaw, type Component } from 'vue';
+import IconRedraw from '@/components/IconRedraw.vue';
 import {
   Camera,
   MagicStick,
@@ -34,6 +35,8 @@ const REGISTRY: Record<string, Component> = {
   'edit-pen': markRaw(EditPen),
   document: markRaw(Document),
   image: markRaw(Picture),
+  /** 影像 AI 重绘：自绘图标，EP 的 Picture 在 20px 下过于稀疏 */
+  redraw: markRaw(IconRedraw),
   'video-camera': markRaw(VideoCamera),
   code: markRaw(SetUp),
   cpu: markRaw(Cpu),

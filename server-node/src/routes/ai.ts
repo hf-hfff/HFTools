@@ -3,6 +3,8 @@ import { getResolvedConfig } from '../services/model-configs.service.js';
 import { reviewPhoto } from '../services/photo-review.service.js';
 import { optimizePrompt } from '../services/prompt-optimize.service.js';
 import { optimizePhoto, regeneratePhoto, PhotoOptimizeError } from '../services/photo-optimize.service.js';
+import { redraw } from '../services/redraw.service.js';
+import { optimizeRedrawPrompt } from '../services/redraw-prompt-optimize.service.js';
 import { sendOk, ApiError } from '../utils/response.js';
 
 /**
@@ -81,6 +83,31 @@ aiRouter.post('/api/ai/prompt-optimize', async (req, res, next) => {
     };
     const result = await optimizePrompt(prompt, level, scene);
     sendOk(res, { result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * 影像 AI 重绘：POST /api/ai/image-redraw，body: { image: dataURL, prompt, template_id? }
+ * 返回图片 URL（非 base64）：结果图已落盘，前端 <img> 直接加载，且与历史记录共用同一份文件
+ * 必须注册在通用 /api/ai/:task 之前
+ */
+aiRouter.post('/api/ai/image-redraw', async (req, res, next) => {
+  try {
+    sendOk(res, await redraw(req.body));
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * 重绘提示词优化：POST /api/ai/redraw-prompt-optimize，body: { prompt }
+ * 纯文本改写（不发原图），全量输入不截断，超时 180s
+ */
+aiRouter.post('/api/ai/redraw-prompt-optimize', async (req, res, next) => {
+  try {
+    sendOk(res, { result: await optimizeRedrawPrompt(req.body) });
   } catch (err) {
     next(err);
   }

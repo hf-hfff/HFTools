@@ -18,6 +18,11 @@ export default defineConfig({
       '/static': {
         target: 'http://localhost:3001',
       },
+      // 重绘图片等以相对路径引用的接口资源（<img src="/api/redraw/files/...">）
+      // axios 请求在开发环境走绝对地址，这里只服务 <img>/<a> 的同源引用
+      '/api': {
+        target: 'http://localhost:3001',
+      },
     },
   },
 });
