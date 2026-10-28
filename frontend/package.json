@@ -7,7 +7,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "gate:capture": "node tests/ui-gate/capture.mjs",
+    "gate:baseline": "node tests/ui-gate/capture.mjs --out=tests/ui-gate/baseline",
+    "gate:diff": "node tests/ui-gate/diff.mjs",
+    "gate": "node tests/ui-gate/capture.mjs && node tests/ui-gate/diff.mjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
@@ -22,6 +26,7 @@
   "devDependencies": {
     "@types/node": "^22.10.5",
     "@vitejs/plugin-vue": "^5.2.1",
+    "playwright-core": "^1.64.1",
     "typescript": "~5.8.3",
     "vite": "^5.4.11",
     "vue-tsc": "^2.2.0"

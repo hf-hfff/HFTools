@@ -38,6 +38,12 @@ __pycache__/
 # pnpm
 .pnpm-store/
 
+# 视觉回归闸门：临时采集与本次截图（基线 JSON 入库，截图按需重生成）
+frontend/tests/ui-gate/.current/
+frontend/tests/ui-gate/.run*/
+frontend/tests/ui-gate/.mut/
+screenshots/phase2-baseline/
+
 # 本地 AI 协作产物（会话记忆、brainstorm 临时页）
 .superpowers/
 .workbuddy/
