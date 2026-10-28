@@ -33,3 +33,11 @@
 .user-layout .el-empty__description p {
   color: var(--muted);
 }
+
+/* 键盘焦点：EP 组件默认只在 wrapper 上换边框色，浅色卡片上几乎看不出落点，
+   键盘用户会「迷路」。补一层与用户端同规格的可见焦点环（WCAG 2.4.7）。 */
+.el-input__wrapper:focus-within,
+.el-button:focus-visible {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
+}

@@ -2,8 +2,9 @@
 // 用户端首页：电影感舞台首屏 + 按分类分组展示已启用工具卡片
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { ArrowDown, ArrowRight } from '@element-plus/icons-vue';
+import { ArrowRight } from '@element-plus/icons-vue';
 import ToolIcon from '@/components/ToolIcon.vue';
+import heroPlateUrl from '@/assets/portal_scene.webp';
 import { useToolsStore } from '@/stores/tools';
 import type { Tool, ToolCategory } from '@/types';
 
@@ -55,7 +56,7 @@ function openTool(tool: Tool) {
     <!-- ===== 舞台首屏：舞台照片 + 中心压暗 + 电影感底部渐隐 ===== -->
     <section class="hero">
       <!-- 背景图层（源 plate 构图） -->
-      <div class="hero-plate" role="presentation"></div>
+      <div class="hero-plate" role="presentation" :style="{ backgroundImage: `url(${heroPlateUrl})` }"></div>
 
       <div class="hero-inner">
         <p class="hero-eyebrow">HFTools · Personal AI Toolbox</p>
@@ -67,10 +68,6 @@ function openTool(tool: Tool) {
           <span>摄影 · AI 工程 · 求职</span>
           <span>本地运行 · {{ toolsStore.tools.length }} 个工具已注册 · {{ readyCount }} 个已上线</span>
         </p>
-        <a class="hero-cta" href="#tools">
-          浏览工具
-          <el-icon class="cta-arrow" aria-hidden="true"><ArrowDown /></el-icon>
-        </a>
       </div>
 
       <!-- 底部分类条：真实锚点，点击直达对应分区 -->
@@ -137,11 +134,13 @@ function openTool(tool: Tool) {
   background: #050505;
 }
 
-/* 背景图层（源 plate 实况：舞台照片全幅铺底） */
+/* 背景图层（源 plate 实况：舞台照片全幅铺底，图片由模板绑定，便于拿到内容哈希） */
 .hero-plate {
   position: absolute;
   inset: 0;
-  background: url('/images/portal_scene.jpg') center 62% / cover no-repeat;
+  background-position: center 62%;
+  background-size: cover;
+  background-repeat: no-repeat;
 }
 
 /* 中心压暗：保证居中文字可读，边缘保留画面（替代源左右渐隐的居中版式适配） */
@@ -216,35 +215,6 @@ function openTool(tool: Tool) {
 
 .sub span {
   display: block;
-}
-
-/* 首屏主 CTA：全页唯一的白色实心胶囊，视觉焦点明确 */
-.hero-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 34px;
-  height: 46px;
-  padding: 0 28px;
-  border-radius: var(--r-pill);
-  background: #ffffff;
-  color: #050505;
-  font-size: 14.5px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-decoration: none;
-  transition:
-    transform 0.25s var(--ease),
-    opacity 0.25s var(--ease);
-}
-
-.hero-cta:hover {
-  transform: translateY(-2px);
-  opacity: 0.92;
-}
-
-.cta-arrow {
-  font-size: 13px;
 }
 
 /* 底部分类条 */
@@ -479,12 +449,6 @@ function openTool(tool: Tool) {
     font-size: 14px;
   }
 
-  .hero-cta {
-    margin-top: 26px;
-    height: 42px;
-    padding: 0 24px;
-  }
-
   /* 分类条从绝对定位改为常规流，随内容排布不再溢出 */
   .strip {
     position: static;
@@ -552,10 +516,6 @@ function openTool(tool: Tool) {
 
   .sub {
     animation: rise 0.9s 0.14s var(--ease) both;
-  }
-
-  .hero-cta {
-    animation: rise 0.9s 0.2s var(--ease) both;
   }
 
   .strip-item {

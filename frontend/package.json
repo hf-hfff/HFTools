@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc -b && vite build",
+    "build": "vue-tsc -b && vite build && node scripts/check-budget.mjs",
+    "budget": "node scripts/check-budget.mjs",
     "preview": "vite preview",
     "gate:capture": "node tests/ui-gate/capture.mjs",
     "gate:baseline": "node tests/ui-gate/capture.mjs --out=tests/ui-gate/baseline",
@@ -27,7 +28,9 @@
   "devDependencies": {
     "@types/node": "^22.10.5",
     "@vitejs/plugin-vue": "^5.2.1",
+    "ffmpeg-static": "^5.3.0",
     "playwright-core": "^1.64.1",
+    "sharp": "^0.35.5",
     "typescript": "~5.8.3",
     "unplugin-vue-components": "^32.1.0",
     "vite": "^5.4.11",

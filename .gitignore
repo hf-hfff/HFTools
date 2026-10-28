@@ -44,6 +44,9 @@ frontend/tests/ui-gate/.run*/
 frontend/tests/ui-gate/.mut/
 screenshots/phase2-baseline/
 
+# 媒体源文件（原片/素材，转码产物在 frontend/public/videos/）
+assets-src/
+
 # 本地 AI 协作产物（会话记忆、brainstorm 临时页）
 .superpowers/
 .workbuddy/

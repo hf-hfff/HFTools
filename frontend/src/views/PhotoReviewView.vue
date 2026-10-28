@@ -1,14 +1,19 @@
 <script setup lang="ts">
 // 照片点评工具页：上传单张照片 + 可选拍摄描述，提交后展示多模态 LLM 的 Markdown 点评
-import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { computed, ref } from 'vue';
+import { useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Camera, Picture } from '@element-plus/icons-vue';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { reviewPhoto } from '@/api/ai';
-import ToolIcon from '@/components/ToolIcon.vue';
-import { useToolsStore } from '@/stores/tools';
+import EmptyState from '@/components/EmptyState.vue';
+import NotFoundState from '@/components/NotFoundState.vue';
+import PhotoWall from '@/components/PhotoWall.vue';
+import SubmitButton from '@/components/SubmitButton.vue';
+import ToolPageHeader from '@/components/ToolPageHeader.vue';
+import { useLongTask } from '@/composables/useLongTask';
+import { useToolMeta } from '@/composables/useToolMeta';
 
 /** 点评请求超时上限（与 api/ai.ts 单请求 timeout 一致） */
 const REVIEW_TIMEOUT_S = 180;
@@ -23,76 +28,21 @@ const FUN_STATUS = [
 ];
 
 const route = useRoute();
-const router = useRouter();
-const toolsStore = useToolsStore();
-const loadingTools = ref(true);
+const { tool, loading, notFound } = useToolMeta(() =>
+  String(route.params.id ?? 'photo-review'),
+);
 
-/* ===== 背景照片墙：assets/bg-photos 全量收集，数量自适应 ===== */
-interface BgPhoto {
-  src: string;
-  left: number; // %
-  top: number; // %
-  width: number; // vw
-  rotate: number; // deg
-  z: number;
-}
-
-/** 确定性伪随机（mulberry32）：布局抖动每次刷新稳定，避免渲染跳动 */
-function seededRandom(seed: number): () => number {
-  let s = seed;
-  return () => {
-    s |= 0;
-    s = (s + 0x6d2b79f5) | 0;
-    let t = Math.imul(s ^ (s >>> 15), 1 | s);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-const bgPhotos: BgPhoto[] = (() => {
-  const srcs = Object.values(
-    import.meta.glob<string>('../assets/bg-photos/*.jpg', {
-      eager: true,
-      query: '?url',
-      import: 'default',
-    }),
-  );
-  const rand = seededRandom(20260911);
-  // 粗略 3 列抖动网格铺满视口，超出裁剪
-  const cols = 3;
-  return srcs.map((src, i) => ({
-    src,
-    left: (i % cols) * 33 + rand() * 18 - 4,
-    top: Math.floor(i / cols) * 26 + rand() * 16 - 6,
-    width: 22 + rand() * 8,
-    rotate: rand() * 16 - 8,
-    z: 1 + Math.floor(rand() * 9),
-  }));
-})();
-
-/** 聚光灯轮播：每 3 秒切换选中照片（尊重 prefers-reduced-motion） */
-const spotlightIndex = ref(0);
-let spotlightTimer: ReturnType<typeof setInterval> | undefined;
-const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-onMounted(async () => {
-  if (!prefersReducedMotion && bgPhotos.length > 1) {
-    spotlightTimer = setInterval(() => {
-      spotlightIndex.value = (spotlightIndex.value + 1) % bgPhotos.length;
-    }, 3000);
-  }
-  try {
-    // 直接通过 URL 访问时工具列表可能尚未加载；store 已有数据则直接复用
-    await toolsStore.fetchTools();
-  } catch {
-    // 错误提示已由 axios 拦截器统一处理
-  } finally {
-    loadingTools.value = false;
-  }
+/** 等待态：秒数计时 + 文案轮播（与提示词优化页同节奏） */
+const {
+  elapsed,
+  stageLabel,
+  start: startWaiting,
+  stop: stopWaiting,
+} = useLongTask({
+  timeoutS: REVIEW_TIMEOUT_S,
+  stages: FUN_STATUS.map((label) => ({ label })),
+  rotateMs: 2500,
 });
-
-const toolId = computed(() => String(route.params.id ?? 'photo-review'));
-const tool = computed(() => toolsStore.tools.find((t) => t.id === toolId.value));
 
 /** 允许的图片类型与大小上限 */
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -104,18 +54,6 @@ const fileName = ref('');
 const note = ref('');
 const submitting = ref(false);
 const reviewHtml = ref('');
-
-/** 等待态：轮播文案索引与已等待秒数 */
-const funStatusIndex = ref(0);
-const elapsed = ref(0);
-let statusTimer: ReturnType<typeof setInterval> | undefined;
-let elapsedTimer: ReturnType<typeof setInterval> | undefined;
-
-onUnmounted(() => {
-  clearInterval(statusTimer);
-  clearInterval(elapsedTimer);
-  clearInterval(spotlightTimer);
-});
 
 /** 拍摄描述字数（上限 500，与后端一致）；超限不再静默截断，改为红字提示 + 禁用提交 */
 const NOTE_MAX = 500;
@@ -174,25 +112,6 @@ function isTimeoutError(err: unknown): boolean {
   return (err as { code?: string } | null)?.code === 'ECONNABORTED';
 }
 
-/** 启动/停止等待态的轮播与计时 */
-function startWaiting() {
-  funStatusIndex.value = 0;
-  elapsed.value = 0;
-  statusTimer = setInterval(() => {
-    funStatusIndex.value = (funStatusIndex.value + 1) % FUN_STATUS.length;
-  }, 2500);
-  elapsedTimer = setInterval(() => {
-    elapsed.value += 1;
-  }, 1000);
-}
-
-function stopWaiting() {
-  clearInterval(statusTimer);
-  clearInterval(elapsedTimer);
-  statusTimer = undefined;
-  elapsedTimer = undefined;
-}
-
 /** 提交点评 */
 async function submit() {
   if (!canSubmit.value) return;
@@ -225,37 +144,17 @@ async function submit() {
 </script>
 
 <template>
-  <!-- 背景照片墙：相纸边框 + 错乱排布 + 聚光灯轮播，不参与交互 -->
-  <div v-if="bgPhotos.length" class="photo-wall" aria-hidden="true">
-    <div
-      v-for="(p, i) in bgPhotos"
-      :key="p.src"
-      class="wall-photo"
-      :class="{ active: i === spotlightIndex }"
-      :style="{
-        left: `${p.left}%`,
-        top: `${p.top}%`,
-        width: `${p.width}vw`,
-        '--rot': `${p.rotate}deg`,
-        '--z': p.z,
-      }"
-    >
-      <img :src="p.src" alt="" />
-    </div>
-    <!-- 强蒙层 + vignette：可读性优先 -->
-    <div class="wall-veil"></div>
-  </div>
+  <PhotoWall :seed="20260911" />
 
-  <div v-loading="loadingTools" class="tool-page">
+  <div v-loading="loading" class="tool-page">
     <template v-if="tool">
-      <!-- 眉题：等宽面包屑 -->
-      <p class="crumb">TOOLS / {{ tool.id.toUpperCase() }}</p>
-
-      <div class="tool-header">
-        <span class="tool-icon"><ToolIcon :name="tool.icon" /></span>
-        <h1 class="tool-title">{{ tool.name }}</h1>
-        <button class="pill back-btn" @click="router.push('/')">← 返回工具箱</button>
-      </div>
+      <ToolPageHeader
+        :crumb="`TOOLS / ${tool.id.toUpperCase()}`"
+        :icon="tool.icon"
+        :title="tool.name"
+        back-to="/"
+        variant="wall"
+      />
 
       <div class="review-layout">
         <!-- 左列：上传与描述 -->
@@ -306,13 +205,13 @@ async function submit() {
             <p class="note-count" :class="{ over: noteOver }">{{ noteCount }} / {{ NOTE_MAX }}</p>
           </div>
 
-          <button class="submit-btn" :disabled="!canSubmit" @click="submit">
-            <span v-if="!submitting">开始点评</span>
-            <span v-else class="submitting">
-              <span class="spinner"></span>
-              点评中，通常 10–60 秒
-            </span>
-          </button>
+          <SubmitButton
+            :loading="submitting"
+            :disabled="!canSubmit"
+            label="开始点评"
+            loading-label="点评中，通常 10–60 秒"
+            @click="submit"
+          />
         </section>
 
         <!-- 右列：点评结果 -->
@@ -324,17 +223,18 @@ async function submit() {
                 <span v-for="n in 3" :key="n" class="polaroid"></span>
               </div>
               <div role="status" aria-live="polite">
-                <p class="re-title">{{ FUN_STATUS[funStatusIndex] }}</p>
+                <p class="re-title">{{ stageLabel }}</p>
                 <p class="re-desc" aria-hidden="true">
                   已等待 {{ elapsed }} 秒 · 超时上限 {{ REVIEW_TIMEOUT_S }} 秒
                 </p>
               </div>
             </template>
-            <template v-else>
-              <el-icon class="re-icon" aria-hidden="true"><Picture /></el-icon>
-              <p class="re-title">点评会出现在这里</p>
-              <p class="re-desc">上传照片后提交，等博主开麦</p>
-            </template>
+            <EmptyState
+              v-else
+              :icon="Picture"
+              title="点评会出现在这里"
+              desc="上传照片后提交，等博主开麦"
+            />
           </div>
           <!-- eslint-disable-next-line vue/no-v-html -->
           <div v-else class="review-body" v-html="reviewHtml"></div>
@@ -344,24 +244,11 @@ async function submit() {
       </div>
     </template>
 
-    <div v-else-if="!loadingTools" class="notfound">
-      <p class="nf-code">404</p>
-      <p class="nf-title">未找到该工具</p>
-      <p class="nf-desc">可能已被下线或禁用</p>
-    </div>
+    <NotFoundState v-else-if="notFound" title="未找到该工具" desc="可能已被下线或禁用" />
   </div>
 </template>
 
 <style scoped>
-/* ===== 背景照片墙：fixed 全屏，置于内容之下，不挡交互 ===== */
-.photo-wall {
-  position: fixed;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 0;
-}
-
 /* 内容层盖在照片墙之上 */
 .tool-page {
   position: relative;
@@ -371,146 +258,6 @@ async function submit() {
   max-width: 1060px;
   margin: 0 auto;
   padding: clamp(16px, 2.667vh, 32px) clamp(20px, 4vw, 40px);
-}
-
-/* 单张照片：白色相纸边框（底部略宽，显影相纸感） */
-.wall-photo {
-  position: absolute;
-  transform: rotate(var(--rot));
-  z-index: var(--z);
-  border-radius: 2px;
-  background: #f2f0e9;
-  padding: 6px 6px 10px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-}
-
-.wall-photo img {
-  display: block;
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-  border-radius: 1px;
-  filter: brightness(0.45) saturate(0.85);
-  transform: scale(0.97);
-  transition: filter 0.8s var(--ease), transform 0.8s var(--ease);
-}
-
-/* 聚光灯选中态：提亮放大 + 层叠提升 + 相纸微发光 */
-.wall-photo.active {
-  z-index: 40;
-  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.6), 0 0 26px rgba(255, 255, 255, 0.22);
-}
-
-.wall-photo.active img {
-  filter: brightness(1) saturate(1);
-  transform: scale(1.06);
-}
-
-/* 蒙层：中心强压暗 + 边缘 vignette。
-   原版中心是不透明的 0，聚光灯提亮时正文直接压在亮照片上无法辨认 */
-.wall-veil {
-  position: absolute;
-  inset: 0;
-  z-index: 50;
-  background:
-    radial-gradient(
-      ellipse 82% 68% at 50% 42%,
-      rgba(3, 3, 5, 0.88) 0%,
-      rgba(3, 3, 5, 0.7) 52%,
-      rgba(3, 3, 5, 0.38) 100%
-    ),
-    rgba(3, 3, 5, 0.5);
-}
-
-/* 减少动态偏好：停用轮播过渡 */
-@media (prefers-reduced-motion: reduce) {
-  .wall-photo,
-  .wall-photo img {
-    transition: none;
-  }
-}
-
-/* 正文压在照片上：提亮字色 + 双层阴影兜底 */
-.crumb {
-  margin: 0 0 26px;
-  font-family: var(--mono);
-  font-size: 11.5px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: rgba(250, 250, 250, 0.74);
-  text-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.9),
-    0 2px 14px rgba(0, 0, 0, 0.8);
-}
-
-.tool-header {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  margin-bottom: 36px;
-}
-
-.tool-icon {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 26px;
-}
-
-.tool-title {
-  margin: 0;
-  font-size: clamp(28px, 4vw, 38px);
-  font-weight: 300;
-  letter-spacing: 0.01em;
-  color: var(--ink);
-  text-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.7),
-    0 12px 46px rgba(0, 0, 0, 0.9);
-}
-
-/* ===== 返回工具箱按钮（走全局描边样式，仅压缩尺寸）===== */
-.back-btn {
-  margin-left: auto;
-  height: 38px;
-  min-width: 0;
-  padding: 0 18px;
-  font-size: 13.5px;
-  cursor: pointer;
-}
-
-/* 窄屏：单行放不下时就地收小，标题超长走省略号 */
-@media (max-width: 560px) {
-  .tool-header {
-    gap: 10px 12px;
-    margin-bottom: 28px;
-  }
-
-  .tool-icon {
-    width: 46px;
-    height: 46px;
-    border-radius: 12px;
-    font-size: 22px;
-  }
-
-  .tool-title {
-    flex: 1 1 auto;
-    min-width: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .back-btn {
-    height: 32px;
-    padding: 0 12px;
-    font-size: 12px;
-    white-space: nowrap;
-  }
 }
 
 /* ===== 双栏布局 ===== */
@@ -674,52 +421,6 @@ async function submit() {
   color: var(--danger);
 }
 
-/* ===== 提交按钮 ===== */
-.submit-btn {
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 999px;
-  background: #ffffff;
-  color: #050505;
-  font-size: 14.5px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  padding: 12px 20px;
-  cursor: pointer;
-  transition: opacity 0.25s var(--ease), transform 0.25s var(--ease);
-}
-
-.submit-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-}
-
-.submit-btn:disabled {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--muted);
-  border-color: var(--rule);
-  cursor: not-allowed;
-}
-
-.submitting {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(5, 5, 5, 0.25);
-  border-top-color: #050505;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 /* ===== 右列：点评结果 ===== */
 .result-panel {
   min-height: 320px;
@@ -738,16 +439,7 @@ async function submit() {
   text-align: center;
 }
 
-.re-icon {
-  display: block;
-  margin: 0 auto 12px;
-  width: 30px;
-  height: 30px;
-  font-size: 30px;
-  color: var(--strip);
-  opacity: 0.8;
-}
-
+/* 等待态文案：与空态文字同字号，轮播文案 + 秒数 */
 .re-title {
   margin: 0 0 6px;
   font-size: 15.5px;
@@ -895,45 +587,8 @@ async function submit() {
   color: var(--muted);
 }
 
-/* ===== 未找到态 ===== */
-.notfound {
-  text-align: center;
-  padding: clamp(44px, 10vh, 88px) 0;
-}
-
-.nf-code {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: clamp(48px, 8vw, 72px);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.14);
-  line-height: 1;
-}
-
-.nf-title {
-  margin: 18px 0 6px;
-  font-size: 19px;
-  font-weight: 500;
-  color: var(--ink);
-}
-
-.nf-desc {
-  margin: 0 0 28px;
-  font-size: 14px;
-  color: var(--muted);
-}
-
 /* ===== 入场动画 ===== */
 @media (prefers-reduced-motion: no-preference) {
-  .crumb {
-    animation: rise 0.7s 0.02s var(--ease) both;
-  }
-
-  .tool-header {
-    animation: rise 0.8s 0.08s var(--ease) both;
-  }
-
   .review-layout {
     animation: rise 0.8s 0.16s var(--ease) both;
   }

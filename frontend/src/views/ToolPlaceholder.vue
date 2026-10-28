@@ -1,40 +1,20 @@
 <script setup lang="ts">
 // 工具占位页：status=placeholder 时展示"开发中"，未找到/未启用时展示未找到
-import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import ToolIcon from '@/components/ToolIcon.vue';
-import { useToolsStore } from '@/stores/tools';
+import NotFoundState from '@/components/NotFoundState.vue';
+import ToolPageHeader from '@/components/ToolPageHeader.vue';
+import { useToolMeta } from '@/composables/useToolMeta';
 
 const route = useRoute();
 const router = useRouter();
-const toolsStore = useToolsStore();
-const loading = ref(true);
 
-onMounted(async () => {
-  try {
-    // 直接通过 URL 访问时工具列表可能尚未加载
-    await toolsStore.fetchTools();
-  } catch {
-    // 错误提示已由 axios 拦截器统一处理
-  } finally {
-    loading.value = false;
-  }
-});
-
-const toolId = computed(() => String(route.params.id ?? ''));
-const tool = computed(() => toolsStore.tools.find((t) => t.id === toolId.value));
+const { tool, loading, notFound } = useToolMeta(() => String(route.params.id ?? ''));
 </script>
 
 <template>
   <div v-loading="loading" class="tool-page">
     <template v-if="tool">
-      <!-- 眉题：等宽面包屑 -->
-      <p class="crumb">TOOLS / {{ tool.id.toUpperCase() }}</p>
-
-      <div class="tool-header">
-        <span class="tool-icon"><ToolIcon :name="tool.icon" /></span>
-        <h1 class="tool-title">{{ tool.name }}</h1>
-      </div>
+      <ToolPageHeader :crumb="`TOOLS / ${tool.id.toUpperCase()}`" :icon="tool.icon" :title="tool.name" />
 
       <!-- 未实现的工具统一展示开发中占位 -->
       <div v-if="tool.status === 'placeholder'" class="wip-panel">
@@ -48,12 +28,9 @@ const tool = computed(() => toolsStore.tools.find((t) => t.id === toolId.value))
       </div>
     </template>
 
-    <div v-else-if="!loading" class="notfound">
-      <p class="nf-code">404</p>
-      <p class="nf-title">未找到该工具</p>
-      <p class="nf-desc">可能已被下线或禁用</p>
+    <NotFoundState v-else-if="notFound" title="未找到该工具" desc="可能已被下线或禁用">
       <button class="pill" @click="router.push('/')">返回首页</button>
-    </div>
+    </NotFoundState>
   </div>
 </template>
 
@@ -64,43 +41,6 @@ const tool = computed(() => toolsStore.tools.find((t) => t.id === toolId.value))
   max-width: 1060px;
   margin: 0 auto;
   padding: clamp(16px, 2.667vh, 32px) clamp(20px, 4vw, 40px);
-}
-
-/* 眉题面包屑（源 eyebrow 风格） */
-.crumb {
-  margin: 0 0 26px;
-  font-family: var(--mono);
-  font-size: 11.5px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--strip);
-}
-
-.tool-header {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  margin-bottom: 36px;
-}
-
-.tool-icon {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 26px;
-}
-
-.tool-title {
-  margin: 0;
-  font-size: clamp(28px, 4vw, 38px);
-  font-weight: 300;
-  letter-spacing: 0.01em;
-  color: var(--ink);
 }
 
 /* 开发中占位面板（源 card 风格 + 虚线 WIP 语义） */
@@ -141,47 +81,9 @@ const tool = computed(() => toolsStore.tools.find((t) => t.id === toolId.value))
   padding: 16px 0;
 }
 
-/* 未找到态 */
-.notfound {
-  text-align: center;
-  padding: clamp(44px, 10vh, 88px) 0;
-}
-
-.nf-code {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: clamp(48px, 8vw, 72px);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.14);
-  line-height: 1;
-}
-
-.nf-title {
-  margin: 18px 0 6px;
-  font-size: 19px;
-  font-weight: 500;
-  color: var(--ink);
-}
-
-.nf-desc {
-  margin: 0 0 28px;
-  font-size: 14px;
-  color: var(--muted);
-}
-
 /* ===== 入场动画 ===== */
 @media (prefers-reduced-motion: no-preference) {
-  .crumb {
-    animation: rise 0.7s 0.02s var(--ease) both;
-  }
-
-  .tool-header {
-    animation: rise 0.8s 0.08s var(--ease) both;
-  }
-
-  .wip-panel,
-  .notfound {
+  .wip-panel {
     animation: rise 0.8s 0.16s var(--ease) both;
   }
 }

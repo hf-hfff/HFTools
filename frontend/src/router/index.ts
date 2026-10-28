@@ -67,8 +67,18 @@ const router = createRouter({
         },
       ],
     },
-    // 其余路径统一回首页
-    { path: '/:pathMatch(.*)*', redirect: '/' },
+    // 未命中任何路由：仍走用户端布局，展示 404 页（保留顶栏与页脚）
+    {
+      path: '/:pathMatch(.*)*',
+      component: () => import('@/layouts/UserLayout.vue'),
+      children: [
+        {
+          path: '',
+          name: 'not-found',
+          component: () => import('@/views/NotFoundView.vue'),
+        },
+      ],
+    },
   ],
 });
 

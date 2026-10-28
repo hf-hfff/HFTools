@@ -2,7 +2,7 @@
 // 页面背景：把「原图 → 重绘」示例图纵向铺成数条画廊，相邻列反向缓慢漂移。
 // 之上叠加：中心暗幕（保证正文可读）+ 顶部压暗（压住顶栏过渡）+ 胶片颗粒 + 跟随指针的暖光。
 // 纯装饰层，pointer-events: none，不参与交互与读屏。
-import { onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 /** 纵向列数与每列图数：8 列时 1440px 屏单列约 180px，一屏能看到近 20 张，才成「墙」；
  *  列数偏少会退化成几张放大的照片，失去画廊感。
@@ -22,7 +22,7 @@ const COLUMN_MOTION = Array.from({ length: COLUMN_COUNT }, (_, i) => ({
 
 /** 素材按文件名排序（01…14），保证每次构建顺序一致 */
 const ALL_IMAGES: string[] = (() => {
-  const modules = import.meta.glob<string>('../assets/redraw-mural/*.jpg', {
+  const modules = import.meta.glob<string>('../assets/redraw-mural/*.webp', {
     eager: true,
     query: '?url',
     import: 'default',
@@ -32,15 +32,31 @@ const ALL_IMAGES: string[] = (() => {
     .map((key) => modules[key]);
 })();
 
+/** 可见列数按断点收敛：与视口同宽时单列约 180px，过窄会退化成竖条 */
+function resolveVisibleCols(width: number): number {
+  if (width > 1280) return COLUMN_COUNT;
+  if (width > 1024) return 6;
+  if (width > 820) return 4;
+  return 2;
+}
+
+/** 减动效偏好下整面墙不渲染，连图片请求一起省掉 */
+const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+const reducedMotion = ref(reducedQuery.matches);
+const visibleCols = ref(resolveVisibleCols(window.innerWidth));
+
 /** 列内容：隔行取样，各列画面不重复，避免左右撞图 */
-const columns = ALL_IMAGES.length
-  ? Array.from({ length: COLUMN_COUNT }, (_, col) =>
-      Array.from(
-        { length: IMAGES_PER_COLUMN },
-        (_, i) => ALL_IMAGES[(col + i * COLUMN_COUNT) % ALL_IMAGES.length],
-      ),
-    )
-  : [];
+const columns = computed(() => {
+  if (!ALL_IMAGES.length || reducedMotion.value) return [];
+  return Array.from({ length: visibleCols.value }, (_, col) =>
+    Array.from(
+      { length: IMAGES_PER_COLUMN },
+      (_, i) => ALL_IMAGES[(col + i * COLUMN_COUNT) % ALL_IMAGES.length],
+    ),
+  );
+});
+
+const muralVisible = computed(() => columns.value.length > 0);
 
 /* ===== 指针暖光：仅桌面端点设备启用，rAF 节流写入 CSS 变量 ===== */
 const wallEl = ref<HTMLElement>();
@@ -67,7 +83,6 @@ function onPointerMove(event: PointerEvent) {
 
 /* ===== 滚动视差：墙面比正文慢半拍，产生「隔窗看画廊」的纵深 =====
    位移上限受 scale(1.1) 的余量约束（约 40px），超出会露出黑边 */
-const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 let scrollRaf = 0;
 
 function applyScroll() {
@@ -78,28 +93,47 @@ function applyScroll() {
 }
 
 function onScroll() {
+  if (reducedMotion.value) return;
   if (scrollRaf === 0) scrollRaf = requestAnimationFrame(applyScroll);
+}
+
+/* 视口变化：rAF 节流后重算列数，旋转屏幕也能收敛 */
+let resizeRaf = 0;
+
+function onResize() {
+  if (resizeRaf) return;
+  resizeRaf = requestAnimationFrame(() => {
+    resizeRaf = 0;
+    visibleCols.value = resolveVisibleCols(window.innerWidth);
+  });
+}
+
+function onReducedMotionChange(event: MediaQueryListEvent) {
+  reducedMotion.value = event.matches;
 }
 
 onMounted(() => {
   if (window.matchMedia('(pointer: fine)').matches) {
     window.addEventListener('pointermove', onPointerMove, { passive: true });
   }
-  if (!prefersReducedMotion) {
-    window.addEventListener('scroll', onScroll, { passive: true });
-  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onResize, { passive: true });
+  reducedQuery.addEventListener('change', onReducedMotionChange);
 });
 
 onUnmounted(() => {
   window.removeEventListener('pointermove', onPointerMove);
   window.removeEventListener('scroll', onScroll);
+  window.removeEventListener('resize', onResize);
+  reducedQuery.removeEventListener('change', onReducedMotionChange);
   if (rafId) cancelAnimationFrame(rafId);
   if (scrollRaf) cancelAnimationFrame(scrollRaf);
+  if (resizeRaf) cancelAnimationFrame(resizeRaf);
 });
 </script>
 
 <template>
-  <div ref="wallEl" class="mural" :class="{ 'spot-on': pointerActive }" aria-hidden="true">
+  <div v-if="muralVisible" ref="wallEl" class="mural" :class="{ 'spot-on': pointerActive }" aria-hidden="true">
     <div class="mural-wall">
       <div
         v-for="(column, index) in columns"
@@ -118,6 +152,7 @@ onUnmounted(() => {
             :key="`${copy}-${i}`"
             :src="src"
             alt=""
+            loading="lazy"
             decoding="async"
             draggable="false"
           />
@@ -270,33 +305,5 @@ onUnmounted(() => {
   opacity: 1;
 }
 
-/* 窄屏按断点减少列数，保证单列宽度不至于细成竖条 */
-@media (max-width: 1280px) {
-  .mural-col:nth-child(n + 7) {
-    display: none;
-  }
-}
-
-@media (max-width: 1024px) {
-  .mural-col:nth-child(n + 5) {
-    display: none;
-  }
-}
-
-@media (max-width: 820px) {
-  .mural-col:nth-child(n + 3) {
-    display: none;
-  }
-}
-
-/* 关闭动效：停止漂移，保持静态画廊 */
-@media (prefers-reduced-motion: reduce) {
-  .mural-col {
-    animation: none;
-  }
-
-  .mural-spot {
-    display: none;
-  }
-}
+/* 列数与动效由脚本按断点与减动效偏好决定，样式不再用 display:none 参与筛选 */
 </style>

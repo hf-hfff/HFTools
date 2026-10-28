@@ -42,13 +42,20 @@
 | 2026-10-27 | 模型配置 v2 | 合并为单行 `model_config`、上游模型拉取、推理强度、收敛 OpenAI |
 | 2026-10-27 | 影像AI重绘 | 第 11 个工具：模板 CRUD + 提示词优化 + 历史与容量清理 + 背景画廊页 |
 | 2026-10-28 | 前端 UI 修复 | 评审报告 P0 全清 + P1 主体：顶栏改 grid 并补 560/400 断点、首页补 640/400 断点与主 CTA、照片页暗幕与 text-shadow、`--ink-3` 收敛低对比灰、全局 focus-visible、语义色/圆角/间距令牌、工具页 h1、fetchTools 缓存、live region、emoji 换线性图标 |
+| 2026-10-28 | 前端二期 D1/D2 | 图片转 WebP（dist 图片 1.8MB → 790KB，hero 319→71KB）+ 壁画按断点渲染（375px 2 列/8 请求，减动效 0 请求）；`pnpm gate` 零差异 |
+| 2026-10-28 | 前端二期 A + D3 | 组件抽象落地：`ToolPageHeader`（plain/wall/glass 三变体）/ `SubmitButton` / `EmptyState` / `NotFoundState` / `PhotoWall`（seed 参数化）+ `useToolMeta` / `useLongTask`，5 个视图净删约 1100 行重复 CSS；新增独立 404 路由（保留用户端布局）；闸门空态选择器 `.re-title/.we-title` → `.empty-title`（新旧值逐项一致）；`gate` 零差异 + `gate:behavior` 6/6 |
+| 2026-10-28 | 前端二期 B | 背景视频本地化：13.86MB 境外 CDN 片源自托管到 `public/videos`（720p 262KB / 540p 89KB / 海报 70KB），`preload=none` + `poster` + JS 仅在 ≥900px 且非减动效时播放；`scripts/media-video.mjs` 可复现转码；闸门零差异、7 页无控制台错误 |
+| 2026-10-28 | 前端二期收尾 | `scripts/check-budget.mjs` 接入 build（首屏 JS 250KB / CSS 80KB、全量 JS 900KB / CSS 350KB、图片 900KB，超预算即失败）；全量验收 31 项通过（7 页×3 档无横向溢出/页头单行、79 个焦点环无缺失、减动效 0 媒体请求、断网 0 外部请求）；补管理端 EP 输入框/按钮焦点环；`gate` 零差异 |
+| 2026-10-28 | 首页 CTA 与照片墙调亮 | 按用户要求删除首页「浏览工具」CTA（`hero-inner` 高度 −80，文案整体下移 40）；照片墙提亮：照片 `brightness 0.45→0.62`、蒙层中心 `0.88→0.76`／全局 `0.5→0.32`；选中态提到蒙层之上（`z-index 40→60`，配 `brightness 1.08` + 更强白光晕），轮播切换明显；闸门基线重建后零差异 |
 
 ### 2.5 常用命令
 
 ```bash
 pnpm install && pnpm dev      # 安装；前端 5173 + 后端 3001
 pnpm dev:web / pnpm dev:api   # 单独启动
-cd frontend && pnpm build     # vue-tsc -b && vite build
+cd frontend && pnpm build     # vue-tsc -b && vite build && 体积守卫（超预算即失败）
+cd frontend && pnpm budget    # 单跑体积守卫（读 dist，不重新构建）
+cd frontend && pnpm media:video  # 背景视频转码（先放 assets-src/prompt-bg.mp4，产物入 public/videos）
 cd server-node && npx tsc --noEmit -p tsconfig.json
 docker-compose up --build -d  # 8080 / 3001
 ```

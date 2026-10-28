@@ -13,3 +13,5 @@ allowBuilds:
   better-sqlite3: false
   esbuild: false
   vue-demi: false
+  # 媒体转码脚本（frontend/scripts/media-video.mjs）需要下载 ffmpeg 二进制，仅 devDependencies
+  ffmpeg-static: true

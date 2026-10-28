@@ -392,3 +392,49 @@ https://d8j0ntlcm91z4.cloudfront.net/user_.../hf_20260809_...mp4
 | P2-3 | `RedrawMural` 按断点渲染 | 需改组件内部列数计算逻辑，属中等改动 |
 | P2-5 | 管理端 ≤768px | 管理端仅在桌面使用，按报告判定可降级 |
 | P2-9 / P2-10 | 独立 404 路由、按路由更新 title | 属行为变更，需确认产品预期 |
+
+---
+
+## 九、二期优化记录（2026-10-28）
+
+依据 `docs/frontend-phase2-plan.md` 的 6 步串行执行（闸门 → C → D1 → D2 → A/D3 → B → 预算守卫 + 全量验收）。第八章「未执行」列表在本轮全部落地。
+
+### 9.1 落地项
+
+| 步 | 项 | 落地方式 |
+| --- | --- | --- |
+| 1 | C Element Plus 按需引入 | `unplugin-vue-components` + `ElementPlusResolver`；删 `app.use(ElementPlus)` 与全量 `index.css`；`ElMessage`/`ElMessageBox`/`ElLoading` 显式引样式与指令；locale 改由 `ElConfigProvider`；EP 覆盖抽到 `styles/element-overrides.css`（`main.ts` 最后一个 import） |
+| 2 | D1 图片转 WebP | `scripts/optimize-images.mjs`（sharp）；照片墙 640px/q72、壁画 440px/q70、hero 1920px/q80；hero 移入 `src/assets` 取内容哈希；原 jpg 删除 |
+| 3 | D2 壁画按断点渲染 | `matchMedia` 驱动可见列数（1440px 8 列 / 375px 2 列），旋转屏幕会重算；`loading="lazy"` + `width/height` 防 CLS；减动效下不渲染 |
+| 4 | A 组件抽象 + D3 独立 404 | `ToolPageHeader`（plain/wall/glass 三变体）、`SubmitButton`、`EmptyState`、`NotFoundState`、`PhotoWall`、`useToolMeta`、`useLongTask`；`:pathMatch(.*)*` 改为渲染 `NotFoundView`，`ToolPlaceholder` 保留「工具不存在」业务空态 |
+| 5 | B 背景视频本地化 | 13.86 MB 境外 CDN 片源自托管：720p 262 KB / 540p 89 KB / 海报 70 KB；`preload="none"` + `poster` + 双档 `<source>`；JS 仅在「≥900px 且非减动效」时 `play()`；`scripts/media-video.mjs` 可复现转码 |
+| 6 | 预算守卫 | `scripts/check-budget.mjs` 接入 `pnpm build`（首屏 JS 250 KB / CSS 80 KB，全量 JS 900 KB / CSS 350 KB，图片 900 KB） |
+
+### 9.2 实测结果
+
+| 指标 | 二期前 | 二期后 |
+| --- | --- | --- |
+| 首屏 JS | 1071.3 KB | **154 KB** |
+| 首屏 CSS | 357 KB | **53 KB** |
+| 全量 JS / CSS | 1300 / 449 KB | 740 / 243 KB |
+| dist 图片 | 1800 KB（24 张 jpg） | **860 KB**（含 70 KB 视频海报） |
+| 背景视频 | 13860 KB（境外 CDN） | **351 KB**（自托管，移动端 0 字节） |
+
+### 9.3 全量验收（31 项）
+
+- 7 页 × 3 档（375 / 768 / 1440）：无横向溢出，顶栏与工具页页头单行，页头标题 1 行
+- 键盘 Tab：7 页共 79 个焦点，焦点环 0 缺失
+- 减动效：壁画不渲染、图片请求 0；背景视频 `paused`、`readyState=0`、媒体请求 0
+- 断网（仅放行 localhost）：7 页全部渲染，外部请求 0 条，控制台 0 报错
+- 回归：`pnpm gate` 差异 0；`pnpm gate:behavior` 6/6；`vue-tsc` exit 0；`pnpm build` 通过且体积守卫全绿
+
+### 9.4 本轮补的一处
+
+P0-5 的焦点环此前只覆盖 `.user-layout`。验收时发现管理端登录页的两个 `el-input` 仍只有 EP 的边框变色，浅色卡片上几乎看不出落点。`element-overrides.css` 补 `.el-input__wrapper:focus-within` 与 `.el-button:focus-visible` 的 2px 焦点环，与用户端同规格。
+
+### 9.5 仍未做
+
+| 编号 | 项 | 原因 |
+| --- | --- | --- |
+| P2-5 | 管理端 ≤768px 适配 | 维持原判定：管理端仅桌面使用，按需降级 |
+| — | 自动化单元/集成测试 | 仓库仍无测试框架；视觉闸门 + 行为探针 + 体积守卫承担同等职责 |

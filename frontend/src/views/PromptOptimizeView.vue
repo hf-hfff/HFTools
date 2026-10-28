@@ -1,14 +1,19 @@
 <script setup lang="ts">
 // 提示词优化工具页：级别 + 场景选择 + 草稿输入，提交后展示 LLM 的 Markdown 优化结果
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { EditPen } from '@element-plus/icons-vue';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { optimizePrompt } from '@/api/ai';
+import EmptyState from '@/components/EmptyState.vue';
+import NotFoundState from '@/components/NotFoundState.vue';
+import SubmitButton from '@/components/SubmitButton.vue';
 import ToolIcon from '@/components/ToolIcon.vue';
-import { useToolsStore } from '@/stores/tools';
+import ToolPageHeader from '@/components/ToolPageHeader.vue';
+import { useLongTask } from '@/composables/useLongTask';
+import { useToolMeta } from '@/composables/useToolMeta';
 
 /** 优化请求超时上限（与 api/ai.ts 单请求 timeout 一致） */
 const OPTIMIZE_TIMEOUT_S = 120;
@@ -102,19 +107,27 @@ const EXAMPLES: Array<{ name: string; description: string; icon: string; level: 
 ];
 
 const route = useRoute();
-const router = useRouter();
-const toolsStore = useToolsStore();
-const loadingTools = ref(true);
+const { tool, loading, notFound } = useToolMeta(() =>
+  String(route.params.id ?? 'prompt-engineering'),
+);
+
+/* ===== 背景视频（本地自托管，桌面才加载 720p，≤900px 与减动效只留海报）===== */
 const backgroundVideo = ref<HTMLVideoElement>();
 const videoAvailable = ref(true);
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const wideEnough = window.matchMedia('(min-width: 900px)');
 
+/**
+ * 只在「未开启减动效 + 视口 ≥900px」时才触发加载与播放：
+ * preload="none" 下不调用 play() 就不会请求 mp4，移动端与减动效用户只拿到本地海报
+ */
 function syncBackgroundVideo() {
-  if (!backgroundVideo.value) return;
-  if (reducedMotion.matches) {
-    backgroundVideo.value.pause();
+  const el = backgroundVideo.value;
+  if (!el) return;
+  if (reducedMotion.matches || !wideEnough.matches) {
+    el.pause();
   } else if (videoAvailable.value) {
-    void backgroundVideo.value.play().catch(() => undefined);
+    void el.play().catch(() => undefined);
   }
 }
 
@@ -122,21 +135,16 @@ function handleVideoError() {
   videoAvailable.value = false;
 }
 
-onMounted(async () => {
+onMounted(() => {
   reducedMotion.addEventListener('change', syncBackgroundVideo);
+  wideEnough.addEventListener('change', syncBackgroundVideo);
   syncBackgroundVideo();
-  try {
-    // 直接通过 URL 访问时工具列表可能尚未加载；store 已有数据则直接复用
-    await toolsStore.fetchTools();
-  } catch {
-    // 错误提示已由 axios 拦截器统一处理
-  } finally {
-    loadingTools.value = false;
-  }
 });
 
-const toolId = computed(() => String(route.params.id ?? 'prompt-engineering'));
-const tool = computed(() => toolsStore.tools.find((t) => t.id === toolId.value));
+onUnmounted(() => {
+  reducedMotion.removeEventListener('change', syncBackgroundVideo);
+  wideEnough.removeEventListener('change', syncBackgroundVideo);
+});
 
 /* ===== 表单状态 ===== */
 const level = ref<Level>('user');
@@ -167,40 +175,21 @@ function clearDraft() {
   draft.value = '';
 }
 
-/** 等待态：轮播文案索引与已等待秒数 */
-const funStatusIndex = ref(0);
-const elapsed = ref(0);
-let statusTimer: ReturnType<typeof setInterval> | undefined;
-let elapsedTimer: ReturnType<typeof setInterval> | undefined;
-
-onUnmounted(() => {
-  reducedMotion.removeEventListener('change', syncBackgroundVideo);
-  clearInterval(statusTimer);
-  clearInterval(elapsedTimer);
+/** 等待态：秒数计时 + 文案轮播（与照片点评页同节奏） */
+const {
+  elapsed,
+  stageLabel,
+  start: startWaiting,
+  stop: stopWaiting,
+} = useLongTask({
+  timeoutS: OPTIMIZE_TIMEOUT_S,
+  stages: FUN_STATUS.map((label) => ({ label })),
+  rotateMs: 2500,
 });
 
 /** 是否前端 axios 超时（无响应，code 为 ECONNABORTED） */
 function isTimeoutError(err: unknown): boolean {
   return (err as { code?: string } | null)?.code === 'ECONNABORTED';
-}
-
-/** 启动/停止等待态的轮播与计时 */
-function startWaiting() {
-  funStatusIndex.value = 0;
-  elapsed.value = 0;
-  statusTimer = setInterval(() => {
-    funStatusIndex.value = (funStatusIndex.value + 1) % FUN_STATUS.length;
-  }, 2500);
-  elapsedTimer = setInterval(() => {
-    elapsed.value += 1;
-  }, 1000);
-}
-
-function stopWaiting() {
-  clearInterval(statusTimer);
-  clearInterval(elapsedTimer);
-  statusTimer = undefined;
-  elapsedTimer = undefined;
 }
 
 /**
@@ -301,12 +290,12 @@ function downloadResult() {
 </script>
 
 <template>
-  <div v-loading="loadingTools" class="tool-page">
+  <div v-loading="loading" class="tool-page">
     <video
-      v-if="videoAvailable"
       ref="backgroundVideo"
       class="page-background-video"
-      autoplay
+      poster="/videos/prompt-bg-poster.webp"
+      preload="none"
       muted
       loop
       playsinline
@@ -314,20 +303,19 @@ function downloadResult() {
       tabindex="-1"
       @error="handleVideoError"
     >
-      <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260809_012548_ef22562c-c0ae-4816-ad9d-f8922af4e6a7.mp4" type="video/mp4" />
+      <source media="(max-width: 900px)" src="/videos/prompt-bg-540.mp4" type="video/mp4" />
+      <source src="/videos/prompt-bg-720.mp4" type="video/mp4" />
     </video>
     <div class="page-background-mask" aria-hidden="true"></div>
 
     <div class="tool-page-content">
       <template v-if="tool">
-      <!-- 眉题：等宽面包屑 -->
-      <p class="crumb">TOOLS / {{ tool.id.toUpperCase() }}</p>
-
-      <div class="tool-header">
-        <span class="tool-icon"><ToolIcon :name="tool.icon" /></span>
-        <h1 class="tool-title">{{ tool.name }}</h1>
-        <button class="pill back-btn" @click="router.push('/')">← 返回工具箱</button>
-      </div>
+      <ToolPageHeader
+        :crumb="`TOOLS / ${tool.id.toUpperCase()}`"
+        :icon="tool.icon"
+        :title="tool.name"
+        back-to="/"
+      />
 
       <div class="opt-layout">
         <!-- 左列：配置与输入 -->
@@ -421,13 +409,13 @@ function downloadResult() {
             </p>
           </div>
 
-          <button class="submit-btn" :disabled="!canSubmit" @click="submit">
-            <span v-if="!submitting">开始优化</span>
-            <span v-else class="submitting">
-              <span class="spinner"></span>
-              优化中，通常 10–60 秒
-            </span>
-          </button>
+          <SubmitButton
+            :loading="submitting"
+            :disabled="!canSubmit"
+            label="开始优化"
+            loading-label="优化中，通常 10–60 秒"
+            @click="submit"
+          />
         </section>
 
         <!-- 右列：优化结果 -->
@@ -442,17 +430,18 @@ function downloadResult() {
                 <span class="prompt-node prompt-node-output"><i></i><i></i><i></i></span>
               </div>
               <div role="status" aria-live="polite">
-                <p class="re-title">{{ FUN_STATUS[funStatusIndex] }}</p>
+                <p class="re-title">{{ stageLabel }}</p>
                 <p class="re-desc" aria-hidden="true">
                   已等待 {{ elapsed }} 秒 · 超时上限 {{ OPTIMIZE_TIMEOUT_S }} 秒
                 </p>
               </div>
             </template>
-            <template v-else>
-              <el-icon class="re-icon" aria-hidden="true"><EditPen /></el-icon>
-              <p class="re-title">优化结果会出现在这里</p>
-              <p class="re-desc">输入草稿提示词，或点一个快速开始示例</p>
-            </template>
+            <EmptyState
+              v-else
+              :icon="EditPen"
+              title="优化结果会出现在这里"
+              desc="输入草稿提示词，或点一个快速开始示例"
+            />
           </div>
           <template v-else>
             <div class="result-prompt">
@@ -473,11 +462,7 @@ function downloadResult() {
       </div>
     </template>
 
-      <div v-else-if="!loadingTools" class="notfound">
-        <p class="nf-code">404</p>
-        <p class="nf-title">未找到该工具</p>
-        <p class="nf-desc">可能已被下线或禁用</p>
-      </div>
+      <NotFoundState v-else-if="notFound" title="未找到该工具" desc="可能已被下线或禁用" />
     </div>
   </div>
 </template>
@@ -502,6 +487,8 @@ function downloadResult() {
 .page-background-video {
   z-index: 0;
   object-fit: cover;
+  /* 首帧海报兜底：视频未加载/解码失败时仍有画面（preload=none 下移动端只显示它） */
+  background: #050505 url('/videos/prompt-bg-poster.webp') center / cover no-repeat;
 }
 
 .page-background-mask {
@@ -517,88 +504,6 @@ function downloadResult() {
   margin: 0 auto;
   padding: clamp(16px, 2.667vh, 32px) clamp(20px, 4vw, 40px);
   box-sizing: border-box;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .page-background-video {
-    display: none;
-  }
-}
-
-.crumb {
-  margin: 0 0 26px;
-  font-family: var(--mono);
-  font-size: 11.5px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--strip);
-}
-
-.tool-header {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  margin-bottom: 36px;
-}
-
-.tool-icon {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 26px;
-}
-
-.tool-title {
-  margin: 0;
-  font-size: clamp(28px, 4vw, 38px);
-  font-weight: 300;
-  letter-spacing: 0.01em;
-  color: var(--ink);
-}
-
-/* ===== 返回工具箱按钮（走全局描边样式，仅压缩尺寸）===== */
-.back-btn {
-  margin-left: auto;
-  height: 38px;
-  min-width: 0;
-  padding: 0 18px;
-  font-size: 13.5px;
-  cursor: pointer;
-}
-
-/* 窄屏：单行放不下时就地收小，标题超长走省略号 */
-@media (max-width: 560px) {
-  .tool-header {
-    gap: 10px 12px;
-    margin-bottom: 28px;
-  }
-
-  .tool-icon {
-    width: 46px;
-    height: 46px;
-    border-radius: 12px;
-    font-size: 22px;
-  }
-
-  .tool-title {
-    flex: 1 1 auto;
-    min-width: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .back-btn {
-    height: 32px;
-    padding: 0 12px;
-    font-size: 12px;
-    white-space: nowrap;
-  }
 }
 
 /* ===== 双栏布局 ===== */
@@ -862,52 +767,6 @@ function downloadResult() {
   color: var(--danger);
 }
 
-/* ===== 提交按钮 ===== */
-.submit-btn {
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 999px;
-  background: #ffffff;
-  color: #050505;
-  font-size: 14.5px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  padding: 12px 20px;
-  cursor: pointer;
-  transition: opacity 0.25s var(--ease), transform 0.25s var(--ease);
-}
-
-.submit-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-}
-
-.submit-btn:disabled {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--muted);
-  border-color: var(--rule);
-  cursor: not-allowed;
-}
-
-.submitting {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(5, 5, 5, 0.25);
-  border-top-color: #050505;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 /* ===== 右列：优化结果 ===== */
 .result-panel {
   width: 100%;
@@ -927,16 +786,6 @@ function downloadResult() {
   justify-content: center;
   min-height: 280px;
   text-align: center;
-}
-
-.re-icon {
-  display: block;
-  margin: 0 auto 12px;
-  width: 30px;
-  height: 30px;
-  font-size: 30px;
-  color: var(--strip);
-  opacity: 0.8;
 }
 
 .re-title {
@@ -1214,45 +1063,8 @@ function downloadResult() {
   color: var(--muted);
 }
 
-/* ===== 未找到态 ===== */
-.notfound {
-  text-align: center;
-  padding: clamp(44px, 10vh, 88px) 0;
-}
-
-.nf-code {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: clamp(48px, 8vw, 72px);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.14);
-  line-height: 1;
-}
-
-.nf-title {
-  margin: 18px 0 6px;
-  font-size: 19px;
-  font-weight: 500;
-  color: var(--ink);
-}
-
-.nf-desc {
-  margin: 0 0 28px;
-  font-size: 14px;
-  color: var(--muted);
-}
-
 /* ===== 入场动画 ===== */
 @media (prefers-reduced-motion: no-preference) {
-  .crumb {
-    animation: rise 0.7s 0.02s var(--ease) both;
-  }
-
-  .tool-header {
-    animation: rise 0.8s 0.08s var(--ease) both;
-  }
-
   .opt-layout {
     animation: rise 0.8s 0.16s var(--ease) both;
   }

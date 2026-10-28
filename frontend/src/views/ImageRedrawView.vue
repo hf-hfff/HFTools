@@ -1,8 +1,7 @@
 <script setup lang="ts">
 // 影像 AI 重绘页：左栏上传原图 + 右栏提示词工作区（手输 / 模板追加 / AI 优化），
 // 单次 POST 后按时间预估推进四阶段，结果区展示原图与重绘结果的对比，底部为历史记录
-import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, onUnmounted, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import {
   createTemplate,
@@ -12,12 +11,13 @@ import {
   type TemplateDetail,
 } from '@/api/redraw';
 import ImageUploader from '@/components/ImageUploader.vue';
+import NotFoundState from '@/components/NotFoundState.vue';
 import TemplatePickerDialog from '@/components/TemplatePickerDialog.vue';
 import RedrawProgress from '@/components/RedrawProgress.vue';
 import RedrawHistoryPanel from '@/components/RedrawHistoryPanel.vue';
 import RedrawMural from '@/components/RedrawMural.vue';
-import ToolIcon from '@/components/ToolIcon.vue';
-import { useToolsStore } from '@/stores/tools';
+import ToolPageHeader from '@/components/ToolPageHeader.vue';
+import { useToolMeta } from '@/composables/useToolMeta';
 
 /** 提示词字数上限（与后端 PROMPT_MAX_LENGTH、模板正文上限一致） */
 const PROMPT_MAX = 10_000;
@@ -27,22 +27,7 @@ const REDRAW_TIMEOUT_S = 320;
 
 const TOOL_ID = 'image-redraw';
 
-const router = useRouter();
-const toolsStore = useToolsStore();
-const loadingTools = ref(true);
-
-onMounted(async () => {
-  try {
-    // store 已有数据则直接复用，避免每个工具页重复 GET
-    await toolsStore.fetchTools();
-  } catch {
-    // 错误提示已由 axios 拦截器统一处理
-  } finally {
-    loadingTools.value = false;
-  }
-});
-
-const tool = computed(() => toolsStore.tools.find((t) => t.id === TOOL_ID));
+const { tool, loading, notFound } = useToolMeta(() => TOOL_ID);
 
 /* ===== 输入区 ===== */
 const imageDataUrl = ref('');
@@ -293,18 +278,16 @@ function reuseFromHistory(text: string) {
     <!-- 背景画廊：示例图纵向漂移 + 中心暗幕，正文以玻璃面板浮在其上 -->
     <RedrawMural />
 
-    <div v-loading="loadingTools" class="tool-page">
+    <div v-loading="loading" class="tool-page">
       <template v-if="tool">
-        <p class="crumb"><span class="crumb-rule"></span>TOOLS / {{ tool.id.toUpperCase() }}</p>
-
-        <header class="tool-header">
-          <span class="tool-icon"><ToolIcon :name="tool.icon" /></span>
-          <div class="title-wrap">
-            <h1 class="tool-title">{{ tool.name }}</h1>
-            <p class="tool-sub">模板驱动的创意重绘 · 保留原图内容，重塑画面风格</p>
-          </div>
-          <button class="pill back-btn" @click="router.push('/')">← 返回工具箱</button>
-        </header>
+        <ToolPageHeader
+          :crumb="`TOOLS / ${tool.id.toUpperCase()}`"
+          :icon="tool.icon"
+          :title="tool.name"
+          subtitle="模板驱动的创意重绘 · 保留原图内容，重塑画面风格"
+          back-to="/"
+          variant="glass"
+        />
 
         <!-- 输入区：左上传 / 右提示词工作区 -->
         <div class="input-layout">
@@ -428,6 +411,10 @@ function reuseFromHistory(text: string) {
 
         <RedrawHistoryPanel :refresh-key="historyKey" @reuse="reuseFromHistory" />
       </template>
+
+      <NotFoundState v-else-if="notFound" title="未找到该工具" desc="可能已被下线或禁用">
+        <button class="pill" @click="$router.push('/')">返回首页</button>
+      </NotFoundState>
     </div>
 
     <TemplatePickerDialog v-model="pickerVisible" @select="applyTemplate" />
@@ -447,107 +434,6 @@ function reuseFromHistory(text: string) {
   max-width: 1060px;
   margin: 0 auto;
   padding: clamp(16px, 2.667vh, 32px) clamp(20px, 4vw, 40px);
-}
-
-.crumb {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0 0 26px;
-  font-family: var(--mono);
-  font-size: 11.5px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: rgba(250, 250, 250, 0.74);
-  text-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.9),
-    0 2px 14px rgba(0, 0, 0, 0.75);
-}
-
-/* 眉题前的细导线：给标题区一个入口，避免文字直接浮在画面上 */
-.crumb-rule {
-  width: 30px;
-  height: 1px;
-  flex: none;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45));
-}
-
-.tool-header {
-  display: flex;
-  align-items: center;
-  gap: clamp(16px, 2vw, 22px);
-  margin-bottom: clamp(26px, 4vh, 40px);
-}
-
-.tool-icon {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-  /* 右上角一点暖光，呼应图标那颗星芒，让 chip 不像一块死玻璃 */
-  background:
-    radial-gradient(120% 120% at 78% 16%, rgba(255, 214, 168, 0.18), rgba(255, 214, 168, 0) 62%),
-    linear-gradient(160deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.03));
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  font-size: 26px;
-  color: var(--ink);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 12px 30px -14px rgba(0, 0, 0, 0.9);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-}
-
-.title-wrap {
-  min-width: 0;
-}
-
-.tool-title {
-  margin: 0;
-  font-size: clamp(30px, 4.6vw, 46px);
-  font-weight: 300;
-  line-height: 1.15;
-  letter-spacing: -0.005em;
-  color: var(--ink);
-  text-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.5),
-    0 10px 46px rgba(0, 0, 0, 0.9);
-}
-
-.tool-sub {
-  margin: 9px 0 0;
-  font-size: 12.5px;
-  letter-spacing: 0.02em;
-  color: rgba(250, 250, 250, 0.84);
-  text-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.9),
-    0 2px 14px rgba(0, 0, 0, 0.8);
-}
-
-/* 次要动作：不用白胶囊，避免和主 CTA「开始重绘」抢视觉重量 */
-.tool-header .back-btn {
-  margin-left: auto;
-  height: 34px;
-  min-width: 0;
-  padding: 0 16px;
-  font-size: 12.5px;
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  cursor: pointer;
-  transition:
-    background 0.25s var(--ease),
-    border-color 0.25s var(--ease);
-}
-
-.tool-header .back-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.3);
-  opacity: 1;
 }
 
 /* 面板：玻璃底衬见全局 .glass，这里只管内距与定位 */
@@ -598,38 +484,6 @@ function reuseFromHistory(text: string) {
 @media (max-width: 880px) {
   .input-layout {
     grid-template-columns: 1fr;
-  }
-}
-
-/* 窄屏：图标与返回按钮都要收小，否则一行放不下大标题 */
-@media (max-width: 560px) {
-  .tool-header {
-    gap: 12px;
-  }
-
-  .tool-icon {
-    width: 46px;
-    height: 46px;
-    border-radius: 12px;
-    font-size: 22px;
-  }
-
-  .title-wrap {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .tool-title {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .tool-header .back-btn {
-    height: 32px;
-    padding: 0 12px;
-    font-size: 12px;
-    white-space: nowrap;
   }
 }
 
@@ -859,10 +713,6 @@ function reuseFromHistory(text: string) {
 
 /* 入场：标题先落、两块面板随后，给首屏一个呼吸节奏 */
 @media (prefers-reduced-motion: no-preference) {
-  .tool-header {
-    animation: rise 0.8s var(--ease) both;
-  }
-
   .input-layout .panel {
     animation: rise 0.9s var(--ease) both;
     animation-delay: 0.06s;
