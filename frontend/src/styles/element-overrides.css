@@ -1,0 +1,35 @@
+/**
+ * Element Plus 覆盖层 —— 唯一允许出现 .el-* 选择器的地方。
+ *
+ * 为什么单独成文件：
+ * 1. 按需引入后，EP 的组件样式由插件随组件模块注入，注入时机不确定；
+ *    把覆盖集中到 main.ts 的最后一个 import，层叠顺序才可预期。
+ * 2. 升级 Element Plus 时只需审这一个文件，不用在 design tokens 里翻。
+ *
+ * 注意变量块用的是 :root:root（特异性 0,2,0）而不是 :root：
+ * base.css 里也有一份 :root { --el-color-primary: #409eff }，
+ * 同特异性下谁后到谁赢，构建顺序一变主色就会悄悄变蓝。提高特异性后与顺序无关。
+ */
+:root:root {
+  /* 管理端沿用靛蓝，不受用户端深色改版影响 */
+  --el-color-primary: #4338ca;
+  --el-color-primary-light-3: #6f68d8;
+  --el-color-primary-light-5: #9893e3;
+  --el-color-primary-light-7: #c3c0f0;
+  --el-color-primary-light-8: #d9d7f5;
+  --el-color-primary-light-9: #eeedfb;
+  --el-color-primary-dark-2: #352fa1;
+}
+
+/* 用户端深色舞台：加载遮罩与空态文字跟随页面基调 */
+.user-layout .el-loading-mask {
+  background-color: rgba(5, 5, 5, 0.72);
+}
+
+.user-layout .el-loading-spinner .path {
+  stroke: #fafafa;
+}
+
+.user-layout .el-empty__description p {
+  color: var(--muted);
+}

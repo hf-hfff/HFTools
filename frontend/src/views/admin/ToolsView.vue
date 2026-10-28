@@ -86,7 +86,7 @@ async function onSwitchChange(tool: Tool, newVal: boolean | string | number) {
             <el-switch
               :model-value="row.enabled"
               :loading="switching[row.id]"
-              @change="(val: string | number | boolean) => onSwitchChange(row, val)"
+              @change="(val: string | number | boolean) => onSwitchChange(row as Tool, val)"
             />
           </template>
         </el-table-column>

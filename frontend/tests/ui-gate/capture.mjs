@@ -8,7 +8,7 @@
  *   node tests/ui-gate/capture.mjs --base=http://host:port
  */
 import { chromium } from 'playwright-core';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   BASE_URL,
@@ -84,6 +84,9 @@ async function snapshotPage(page, selectors) {
 }
 
 async function main() {
+  // 先清空输出目录：否则采集中途失败时，上一轮的 snapshot.json 会被
+  // diff 当成「本次结果」，闸门会静默给出假通过。
+  await rm(outDir, { recursive: true, force: true });
   await mkdir(outDir, { recursive: true });
   if (shotsDir) await mkdir(shotsDir, { recursive: true });
 

@@ -1,10 +1,21 @@
 import { fileURLToPath, URL } from 'node:url';
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
+import Components from 'unplugin-vue-components/vite';
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers';
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [
+    vue(),
+    // Element Plus 按需引入：模板里写 <el-xxx> 时自动注入组件与对应样式，
+    // 不再需要 main.ts 里 app.use(ElementPlus) + 全量 index.css
+    Components({
+      resolvers: [ElementPlusResolver({ importStyle: 'css' })],
+      // 生成的类型声明入库，供 vue-tsc 识别模板中自动导入的组件
+      dts: 'src/components.d.ts',
+    }),
+  ],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

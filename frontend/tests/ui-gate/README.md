@@ -13,6 +13,7 @@ pnpm dev:web            # 5173
 cd frontend
 pnpm gate               # 采集 + 与基线比对，有差异则 exit 1
 pnpm gate:baseline      # 重建基线（仅在「改动就是期望」时用）
+pnpm gate:behavior      # 行为探针：指令、命令式弹层、表格、语言包、控制台报错
 ```
 
 采集结果写入 `tests/ui-gate/.current/snapshot.json`，报告写入同目录 `report.md`。
@@ -22,6 +23,24 @@ pnpm gate:baseline      # 重建基线（仅在「改动就是期望」时用）
 ```bash
 node tests/ui-gate/capture.mjs --shots=../screenshots/phase2-after
 ```
+
+### 两个脚本的分工
+
+| 脚本 | 能抓 | 抓不到 |
+|---|---|---|
+| `capture + diff` | 样式被覆盖、断点错位、字号被顶掉、节点重复渲染 | 元素根本不存在时的「静默失效」 |
+| `behavior.mjs` | `v-loading` 未注册、命令式弹层无样式、语言包丢失、运行时报错 | 细粒度视觉位移 |
+
+Element Plus 改按需引入时，这两种失败会同时出现：组件样式塌了（闸门能抓）+ 指令没注册（闸门抓不到，因为元素压根不渲染）。所以两个都要跑。
+
+### 本机环境注意
+
+Vite 重建依赖缓存时会批量删除 `node_modules/.vite/deps_temp_*`。如果运行环境启用了批量删除保护，dev server 会直接崩溃（报 `SAFE_DELETE_BULK_CONFIRM_REQUIRED`）。两种处理：
+
+1. 启动前 `rm -rf node_modules/.vite`
+2. 仅对这个进程关闭保护：`CODEBUDDY_SAFE_DELETE_ENABLED=0 pnpm dev:web`
+
+两者都只作用于可再生的构建缓存，不涉及项目文件。
 
 ## 覆盖范围
 
@@ -58,3 +77,12 @@ node tests/ui-gate/capture.mjs --shots=../screenshots/phase2-after
 
 改 `config.mjs` 的 `PAGE_SELECTORS`，然后 `pnpm gate:baseline` 重建基线。
 选择器优先取**语义稳定的类名**，别用 `:nth-child` 或依赖文案的结构——它们会因为内容变化产生假阳性。
+
+## 踩过的坑（改脚本前先读）
+
+1. **拦截请求要按 hostname，不要按 baseUrl 前缀**。按前缀放行会把 API（3001）也 abort，首页永远等不到数据。
+2. **`v-loading` 会写内联 `position: overflow`**，遮罩未撤就采集会把加载态当成基线。采集前必须等 `.el-loading-mask` 消失。
+3. **路由 pattern 要精确**。`**/api/tools**` 会同时匹配 Vite 的模块地址 `/src/api/tools.ts`，把模块挂死后页面根本不挂载，症状是「找不到任何元素」。
+4. **空容器的遮罩高度为 0**，Playwright 的 `visible` 判据会认为不可见。断言指令是否生效，看「元素已挂载 + 宿主 position」，别看 visible。
+5. **采集必须先清空输出目录**。否则采集中途失败时，上一轮的 `snapshot.json` 会被当成本次结果，闸门静默给出假通过。
+6. **生产 CSS 顺序与 dev 不同**。EP 的 `base.css` 可能排在我们的覆盖之后，`:root` 同特异性会输；主题变量统一用 `:root:root`。

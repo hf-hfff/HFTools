@@ -278,17 +278,27 @@ Components({
 4. 抽出 `element-overrides.css`，确认它在 `main.ts` 最后
 5. 逐页回归：表格边框、弹窗遮罩、Tooltip 箭头、Message 位置、分页器中文、`v-loading` 遮罩
 
-### 4.4 预期收益与验收
+### 4.4 实测结果（2026-10-28）
 
-| 指标 | 预期 |
-|---|---|
-| `index-*.css` | 357 KB → 110–150 KB |
-| `index-*.js` | 1.10 MB → 420–520 KB |
-| 首次加载（gzip 后） | 约减 260–320 KB |
+| 指标 | 改造前 | 改造后 | 变化 |
+|---|---|---|---|
+| 入口 JS（`index-*.js`） | 1071.3 KB | **153.3 KB** | −86% |
+| 入口 CSS（`index-*.css`） | 357 KB | **53.3 KB** | −85% |
+| 首屏关键资源合计 | 1.46 MB | **207 KB**（gzip 69 KB） | −86% |
+| 全量 JS | 1.30 MB | 804 KB（39 个分块） | 拆成按路由懒加载 |
+| 全量 CSS | 449 KB | 292 KB（按页分块） | 同上 |
 
-验收：8 个页面截图与基线一致；`v-loading` 在 4 个页面可见；`ElMessage` 有正确样式（不是裸文字）；管理端表格/弹窗无样式错位；`vue-tsc` 与 `build` 通过。
+全量数字看起来只降了 40%，是因为原来那 1.1 MB 是一个必须首屏下载的单包；现在 EP 的表格、表单、弹层 CSS 都跟着对应路由走，首屏不再承担。
 
-回滚成本低：单个提交，`git revert` 即恢复全量注册。
+**做法**：`Components({ resolvers: [ElementPlusResolver({ importStyle: 'css' })] })` + 删除 `app.use(ElementPlus)` 与 `dist/index.css`；locale 改由 `App.vue` 的 `<el-config-provider>` 提供；`ElMessage` / `ElMessageBox` / `ElLoading` 不走模板解析，样式与指令需显式引入。
+
+**验证**：`pnpm gate` 零差异（7 页 × 3 档）；`pnpm gate:behavior` 6 项全通过——`v-loading` 遮罩底色 `rgba(5,5,5,.72)`、登录失败 Message 有样式、管理端 11 行表格 + tag + switch、模板弹窗 880×448 且遮罩 `rgba(0,0,0,.5)`、`message-box` 样式命中、7 页无控制台报错。
+
+**三个坑（都已写进 `tests/ui-gate/README.md`）**：
+
+1. `v-loading` 是**指令**，漏注册不会报错，只让加载态静默消失。行为探针专门守这一条。
+2. **生产构建里 `base.css` 的 `:root{--el-color-primary:#409eff}` 排在我们的覆盖之后**（实测 `index.css`：ours@3502、base@5909）。若继续用 `:root`，管理端主色会悄悄从靛蓝变回 EP 蓝。改用 `:root:root`（特异性 0,2,0），与顺序无关。
+3. 按需引入生成了 `src/components.d.ts`，暴露出一个被全局注册掩盖的类型缺口：`el-table` 插槽的 `row` 是 `Record<PropertyKey, any>`，传给 `onSwitchChange(tool: Tool)` 报 TS2345。这是一次真实的类型收紧，不是回归。
 
 ---
 

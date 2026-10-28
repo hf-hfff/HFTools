@@ -64,15 +64,6 @@
 
   /* 等宽字体（眉题/编号/元信息），GeistMono 未安装时回退 */
   --mono: 'GeistMono', 'Cascadia Code', Consolas, ui-monospace, monospace;
-
-  /* Element Plus 主色（管理端沿用靛蓝，不受用户端深色改版影响） */
-  --el-color-primary: #4338ca;
-  --el-color-primary-light-3: #6f68d8;
-  --el-color-primary-light-5: #9893e3;
-  --el-color-primary-light-7: #c3c0f0;
-  --el-color-primary-light-8: #d9d7f5;
-  --el-color-primary-light-9: #eeedfb;
-  --el-color-primary-dark-2: #352fa1;
 }
 
 * {
@@ -228,17 +219,8 @@ body {
   color: #050505;
 }
 
-.user-layout .el-loading-mask {
-  background-color: rgba(5, 5, 5, 0.72);
-}
-
-.user-layout .el-loading-spinner .path {
-  stroke: #fafafa;
-}
-
-.user-layout .el-empty__description p {
-  color: var(--muted);
-}
+/* Element Plus 的所有覆盖（主题变量、加载遮罩、空态文字）集中在 styles/element-overrides.css，
+   本文件不再出现 .el-* 选择器，避免两处维护同一份主题。 */
 
 /* ===== 入场动画（源规范 rise / fade）===== */
 @media (prefers-reduced-motion: no-preference) {
