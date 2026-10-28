@@ -23,6 +23,7 @@
 | ---- | ---- | ---- | ---- |
 | 摄影 | 照片点评（photo-review） | `/tools/photo-review` | ✅ 多模态点评 |
 | 摄影 | 照片AI优化（photo-enhance） | `/tools/photo-enhance` | ✅ 分析 + 重绘 |
+| 摄影 | 影像AI重绘（image-redraw） | `/tools/image-redraw` | ✅ 提示词/模板重绘 + 历史 |
 | 摄影 | 摄影器材参数 / 摄影基础知识 | — | 🚧 |
 | AI 工程 | 提示词优化（prompt-engineering） | `/tools/prompt-engineering` | ✅ 单轮优化 |
 | AI 工程 | AI工具下载/介绍 / git热点追踪 | — | 🚧 |
@@ -34,13 +35,14 @@
 
 - **形态**：monorepo —— `frontend`（Vue3 + Vite + Pinia + Router + Element Plus）、`server-node`（Express + SQLite 网关）、`worker-python`（预留，未编排）；compose 起前端 8080（nginx 托管 + `/api`、`/static` 反代）与网关 3001（数据卷 `server-node/data`），开发态 5173 / 3001。
 - **接口契约**：统一 `{ code, message, data }`；成功 `sendOk()`，业务错误抛 `ApiError(status, code, message)` 交全局 errorHandler；Express 4 的 async 路由须 `try/catch → next(err)`（需携带附加数据时显式回包）；带 base64 图片的接口在全局 `express.json()` 之前单独放宽 `12mb`；具体 AI 路由必须注册在通用 `/api/ai/:task` 之前。
-- **路由分区**：`/api/tools`（公开，仅启用工具）、`/api/admin/*`（JWT，login 除外）、`/api/ai/*`（AI 代理）。
-- **数据**：SQLite `tools` / `model_config`（单行 `id=1`：`base_url` / `api_key` 密文 / `default_model` / `image_model`（空=跟随默认 `gpt-image-2`）/ `reasoning_effort`）/ `admin_users`；旧表 `model_configs` 自 v2 起只读保留（迁移用 `PRAGMA user_version=1`）；建表与迁移幂等；首启无管理员时创建 `admin / admin123`。
+- **路由分区**：`/api/tools`（公开，仅启用工具）、`/api/admin/*`（JWT，login 除外）、`/api/ai/*`（AI 代理）、`/api/redraw/*`（公开：模板 CRUD、历史、图片只读）。
+- **数据**：SQLite `tools` / `model_config`（单行 `id=1`：`base_url` / `api_key` 密文 / `default_model` / `image_model`（空=跟随默认 `gpt-image-2`）/ `reasoning_effort`）/ `admin_users` / `redraw_templates`+`redraw_template_previews`+`redraw_history`（库内只存图片相对路径）；旧表 `model_configs` 自 v2 起只读保留（迁移用 `PRAGMA user_version=1`）；建表与迁移幂等；首启无管理员时创建 `admin / admin123`。
+- **本地文件存储**：重绘图落盘 `server-node/data/redraw/{previews,history}`（与 DB 同卷），经 `/api/redraw/files/:kind/:name` 只读提供，`kind` 白名单 + 文件名白名单 + `resolveDataPath` 前缀校验双层防穿越；历史按「100 条 / 2GB」双上限自动清理。
 - **安全**：前端零密钥，AI/外部调用全经网关；`api_key` 由 `SECRET_KEY` 派生 AES-256-GCM 加密落盘、仅回显脱敏值；日志不落 key、完整 prompt、完整图片，错误详情脱敏截断；`.env`、`*.db`、`data/` 不入库。
-- **前端**：TS strict + `<script setup>`；`api/http.ts` 开发直连 3001、生产同源 `/api`，默认 15s，长任务按接口覆盖（点评/提示词 120s、照片优化 240s），401 清 token 跳登录；用户端深色电影风令牌集中在 `style.css`，管理端 Element Plus 浅色；LLM 输出一律 `marked` + `DOMPurify`（中文紧跟加粗先 `normalizeBold`）；工具图标由 `ToolIcon` 注册表渲染，新增工具须登记；动画尊重 `prefers-reduced-motion`。
+- **前端**：TS strict + `<script setup>`；`api/http.ts` 开发直连 3001、生产同源 `/api`，默认 15s，长任务按接口覆盖（点评/提示词优化/重绘优化 180s、照片优化与重绘 320s），401 清 token 跳登录；用户端深色电影风令牌集中在 `style.css`，管理端 Element Plus 浅色；LLM 输出一律 `marked` + `DOMPurify`（中文紧跟加粗先 `normalizeBold`）；工具图标由 `ToolIcon` 注册表渲染，新增工具须登记；动画尊重 `prefers-reduced-motion`。
 - **模型配置**：单一 OpenAI 配置，3 个管理端端点（`GET/PUT /api/admin/model-config`、`POST /api/admin/model-config/models`）；不做保存前校验（无探测/试调用），配置页常驻「模型能力要求」告知；拉取结果不缓存、仅页面内存；推理强度三档（low/medium/high），仅对 `o1+`/`gpt-5*` 前缀透传；生图模型写入 `tools[0].model`（不用顶层 `image_model`），空值回退 `gpt-image-2`。
-- **AI 链路**：点评 → `llm-client`（`chat/completions`）+ `assets/photo-review` prompt；提示词优化 → `base + level-* + scene-*` 片段拼接单轮调用；照片优化 → 多模态 JSON 分析 → `buildFinalPrompt` → `image-edit.client`（`/v1/images/edits` multipart 图生图，`model`=配置的生图模型），生成失败可携 `analysis` 走 `/retry` 仅重绘。`responses-image.client`（`/v1/responses` + `image_generation` 工具）保留未用：实测部分中转不支持该工具调度（生图稳定报"请求超时未返回"），但支持标准 `images/edits`。
-- **资产**：`server-node/assets` 经 `/static` 暴露（Docker 需显式 COPY）；前端字体/舞台图在 `public/`，照片墙由 `import.meta.glob` + seeded 伪随机布局。
+- **AI 链路**：点评 → `llm-client`（`chat/completions`）+ `assets/photo-review` prompt；提示词优化 → `base + level-* + scene-*` 片段拼接单轮调用；照片优化 → 多模态 JSON 分析 → `buildFinalPrompt` → `image-edit.client`（`/v1/images/edits` multipart 图生图，`model`=配置的生图模型），生成失败可携 `analysis` 走 `/retry` 仅重绘；影像重绘 → `redraw.service`（入参校验 → `image-edit.client` 同一图生图客户端 → 原图/结果图并发落盘 → 写历史与容量清理，失败不连带丢结果）＋ `redraw-prompt-optimize`（纯文本改写，全量不截断）。`responses-image.client`（`/v1/responses` + `image_generation` 工具）保留未用：实测部分中转不支持该工具调度（生图稳定报"请求超时未返回"），但支持标准 `images/edits`。
+- **资产**：`server-node/assets` 经 `/static` 暴露（Docker 需显式 COPY）；前端字体/舞台图在 `public/`，照片墙由 `import.meta.glob` + seeded 伪随机布局，重绘页背景画廊素材在 `src/assets/redraw-mural/`（14 张 440×587、全量约 0.63MB，勿换原图）。
 
 ### 2.4 阶段成果
 
@@ -51,6 +53,7 @@
 | 2026-09-12 | 提示词优化 | 7 片段模板拼接 + 单轮代理 + 前端页（示例、级别、场景、视频背景、复制/下载） | 真实调用约 20s；400 校验验证；浏览器 9/9 通过 |
 | 2026-09-23 | 照片AI优化 | 分析 + 图生图重绘两阶段；`/photo-optimize` 与 `/retry`、管理端生图模型配置、工作台页；转 active | 类型检查通过；错误码覆盖配置/不支持/鉴权/限流/超时/空图；真实链路 10-27 手动验收通过（分析 → `images/edits` 重绘 → 出图） |
 | 2026-10-27 | 模型配置 v2 | 三类配置合并为单行 `model_config`；上游模型拉取/复制；推理强度三档；收敛 OpenAI；删除 dify；生图模型改 `tools[0].model` | 迁移 1 次通过（`user_version=1`，默认模型 `gpt-5.6-terra`、生图 `gpt-image-2`）；真实拉取 7 个模型；前端 build + 后端 tsc 通过；真实链路手动验收通过（拉取模型 → 照片优化闭环） |
+| 2026-10-27 | 影像AI重绘 | 第 11 个工具：原图 + 手输/模板提示词 → `images/edits` → 落盘返 URL；3 张表 + 模板 CRUD（示例图 ≤3）+ 提示词 AI 优化 + 历史（100 条/2GB 自动清理）+ 背景画廊页 | 真实重绘 30.5s、结果图 2.5MB；AI 优化 3.5s；容量清理 106→100；路径穿越 404；前后端构建通过 |
 
 ### 2.5 常用命令
 

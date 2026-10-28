@@ -9,12 +9,13 @@
 
 ## ✨ 功能总览
 
-按 `摄影 / AI 工程 / 求职` 三大主题规划 10 个工具，均以"注册制"接入平台，可在管理端一键控制显隐：
+按 `摄影 / AI 工程 / 求职` 三大主题规划 11 个工具，均以"注册制"接入平台，可在管理端一键控制显隐：
 
 | 分类 | 工具 | 状态 |
 | ---- | ---- | ---- |
 | 摄影 | 照片点评 | ✅ 已上线 |
 | 摄影 | 照片 AI 优化 | ✅ 已上线 |
+| 摄影 | 影像 AI 重绘 | ✅ 已上线 |
 | 摄影 | 摄影器材参数 | 🚧 开发中 |
 | 摄影 | 摄影基础知识 | 🚧 开发中 |
 | AI 工程 | 提示词优化 | ✅ 已上线 |
@@ -44,7 +45,7 @@
 - **工程结构**：monorepo（`frontend` / `server-node` / `worker-python`）
 - **后端**：Node.js 作为 **API 网关**（Express + SQLite），承载全部面向前端接口与 AI 调用代理；Python（`worker-python`）承担文档解析、图片处理等生态优势任务（暂未接入编排）
 - **前端**：Vue3 + Vite + Pinia + Vue Router，UI 组件库 Element Plus；用户端与管理平台同仓
-- **数据库**：SQLite（工具开关、模型配置、内容数据），`better-sqlite3`
+- **数据库**：SQLite（工具开关、模型配置、重绘模板与历史），`better-sqlite3`；图片等大文件落盘 `server-node/data/`（与数据库同卷，库内只存相对路径）
 - **模型接入**：单一 OpenAI 兼容配置（Base URL / API Key / 默认模型 / 生图模型 / 推理强度），对话走 `chat/completions`，生图走 `images/edits` 图生图；另保留 Responses API 适配器备用
 
 ```
@@ -52,10 +53,11 @@ hftools/
 ├── frontend/          # Vue3 前端（用户端 + 管理平台）
 ├── server-node/       # Node API 网关 + SQLite + AI 调用代理
 │   ├── src/
-│   │   ├── routes/    # REST 路由（tools / ai / admin / health）
-│   │   ├── services/  # LLM 客户端、照片点评/优化、生图 client（images/edits）、模型配置、加密
+│   │   ├── routes/    # REST 路由（tools / ai / redraw / admin / health）
+│   │   ├── services/  # LLM 客户端、照片点评/优化、影像重绘、生图 client（images/edits）、文件存储、模型配置、加密
 │   │   └── db/        # SQLite 初始化与种子数据
-│   └── assets/        # skill 资产与静态资源（照片点评 prompt、动图等）
+│   ├── assets/        # skill 资产与静态资源（照片点评 prompt、动图等）
+│   └── data/          # 本地数据（SQLite、重绘图片；不入库）
 ├── worker-python/     # Python 任务（预留）
 ├── docker-compose.yml # 单机编排
 └── AGENTS.md          # 项目规范与阶段成果
@@ -111,6 +113,21 @@ pnpm dev
 - **输出内容**：原图与成图对比、优化方向摘要，支持下载结果图
 - **失败重试**：生成失败不自动重试；分析已完成时可手动仅重发生图（`POST /api/ai/photo-optimize/retry`），不重复消耗分析
 - **处理方式**：单次仅生成 1 张；不保存原图、成图、描述与完整 prompt
+
+---
+
+## 🖌️ 影像 AI 重绘
+
+影像 AI 重绘按用户提供的原图与提示词做图生图重绘，提示词可手写、复用模板或先经 AI 优化。
+
+- **访问路径**：`/tools/image-redraw`
+- **输入**：单张 `jpg/png/webp`（≤ 8MB）；提示词必填（≤ 10000 字）
+- **提示词来源**：手输 / 模板库（可自建、全库共享，正文支持导入 Markdown）/ AI 优化（纯文本改写，全量输入不截断）
+- **模板**：名称 + 正文 + 最多 3 张示例图（≤ 5MB/张），弹窗内按名称检索、示例图可点击放大；正文上限 10000 字，模板总数上限 200
+- **处理流程**：入参校验 → `images/edits` 图生图（结果图 URL 返回，非 base64）→ 原图与结果图落盘 → 写入历史
+- **历史记录**：保留原图、结果图与最终提示词，支持对比查看、单条删除与清空；按 100 条 / 2GB 双上限自动清理最旧记录
+- **进度反馈**：4 段创作语义文案 + 已等待秒数，长耗时给出安抚提示
+- **处理方式**：单次生成 1 张；图片存于 `server-node/data/redraw/`（不入库、不入版本管理）
 
 ---
 
