@@ -148,7 +148,8 @@ function dotState(index: number): 'done' | 'active' | 'todo' {
   font-family: var(--mono);
   font-size: 11px;
   letter-spacing: 0.06em;
-  color: #56565a;
+  /* 原 #56565a 对 glass 底仅 2.61:1，未达 WCAG AA */
+  color: var(--ink-3);
   transition: color 0.3s var(--ease);
 }
 

@@ -745,6 +745,6 @@ async function removeTemplate(item: TemplateListItem) {
 
 .redraw-dialog .el-input__inner::placeholder,
 .redraw-dialog .el-textarea__inner::placeholder {
-  color: #5c5c60;
+  color: var(--ink-3);
 }
 </style>

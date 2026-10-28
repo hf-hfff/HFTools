@@ -2,7 +2,7 @@
 // 用户端首页：电影感舞台首屏 + 按分类分组展示已启用工具卡片
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { ArrowRight } from '@element-plus/icons-vue';
+import { ArrowDown, ArrowRight } from '@element-plus/icons-vue';
 import ToolIcon from '@/components/ToolIcon.vue';
 import { useToolsStore } from '@/stores/tools';
 import type { Tool, ToolCategory } from '@/types';
@@ -13,7 +13,8 @@ const loading = ref(true);
 
 onMounted(async () => {
   try {
-    await toolsStore.fetchTools(true);
+    // 不强制刷新：store 已有数据时直接复用，避免每次进首页重复 GET
+    await toolsStore.fetchTools();
   } catch {
     // 错误提示已由 axios 拦截器统一处理
   } finally {
@@ -50,7 +51,7 @@ function openTool(tool: Tool) {
 </script>
 
 <template>
-  <div v-loading="loading" class="home">
+  <div class="home">
     <!-- ===== 舞台首屏：舞台照片 + 中心压暗 + 电影感底部渐隐 ===== -->
     <section class="hero">
       <!-- 背景图层（源 plate 构图） -->
@@ -66,18 +67,22 @@ function openTool(tool: Tool) {
           <span>摄影 · AI 工程 · 求职</span>
           <span>本地运行 · {{ toolsStore.tools.length }} 个工具已注册 · {{ readyCount }} 个已上线</span>
         </p>
+        <a class="hero-cta" href="#tools">
+          浏览工具
+          <el-icon class="cta-arrow" aria-hidden="true"><ArrowDown /></el-icon>
+        </a>
       </div>
 
-      <!-- 底部分类条（源 logos strip 构图） -->
-      <div class="strip">
-        <span v-for="group in groupedTools" :key="group.key" class="strip-item">
-          {{ group.label }}<i class="dot"></i>
-        </span>
-      </div>
+      <!-- 底部分类条：真实锚点，点击直达对应分区 -->
+      <nav class="strip" aria-label="工具分类">
+        <a v-for="group in groupedTools" :key="group.key" class="strip-item" :href="`#cat-${group.key}`">
+          {{ group.label }}<i class="dot" aria-hidden="true"></i>
+        </a>
+      </nav>
     </section>
 
-    <!-- ===== 工具分区 ===== -->
-    <div id="tools" class="sections">
+    <!-- ===== 工具分区（loading 只罩内容区，不盖首屏）===== -->
+    <div id="tools" v-loading="loading" class="sections">
       <section
         v-for="group in groupedTools"
         :id="`cat-${group.key}`"
@@ -124,6 +129,7 @@ function openTool(tool: Tool) {
 .hero {
   position: relative;
   min-height: max(560px, calc(100vh - 64px));
+  min-height: max(560px, calc(100dvh - 64px));
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -186,7 +192,8 @@ function openTool(tool: Tool) {
 
 .headline {
   margin: 0;
-  font-size: clamp(40px, 7vw, 68px);
+  /* 下限 40→30：360px 视口下「工具链一站式调度」8 字不再折行 */
+  font-size: clamp(30px, 7vw, 68px);
   line-height: 1.12;
   font-weight: 300;
   letter-spacing: 0.01em;
@@ -195,6 +202,9 @@ function openTool(tool: Tool) {
 
 .headline span {
   display: block;
+  /* 中文词组整体换行，避免出现「调 / 度」这类断字 */
+  word-break: keep-all;
+  overflow-wrap: normal;
 }
 
 .sub {
@@ -206,6 +216,35 @@ function openTool(tool: Tool) {
 
 .sub span {
   display: block;
+}
+
+/* 首屏主 CTA：全页唯一的白色实心胶囊，视觉焦点明确 */
+.hero-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 34px;
+  height: 46px;
+  padding: 0 28px;
+  border-radius: var(--r-pill);
+  background: #ffffff;
+  color: #050505;
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  transition:
+    transform 0.25s var(--ease),
+    opacity 0.25s var(--ease);
+}
+
+.hero-cta:hover {
+  transform: translateY(-2px);
+  opacity: 0.92;
+}
+
+.cta-arrow {
+  font-size: 13px;
 }
 
 /* 底部分类条 */
@@ -224,6 +263,13 @@ function openTool(tool: Tool) {
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.02em;
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.25s var(--ease);
+}
+
+.strip-item:hover {
+  color: var(--ink);
 }
 
 .dot {
@@ -379,7 +425,7 @@ function openTool(tool: Tool) {
 
 /* 已上线：实线绿胶囊，与 WIP 虚线灰形成状态对比 */
 .tool-status--ready {
-  color: #9fdcae;
+  color: var(--success);
   border: 1px solid rgba(159, 220, 174, 0.38);
   background: rgba(159, 220, 174, 0.08);
 }
@@ -406,6 +452,86 @@ function openTool(tool: Tool) {
   padding-bottom: clamp(72px, 10vh, 110px);
 }
 
+/* ===== 响应式（此前首页零断点，窄屏全靠运气）===== */
+@media (max-width: 640px) {
+  .hero {
+    flex-direction: column;
+    min-height: max(480px, calc(100dvh - 64px));
+    padding: 88px 0 48px;
+  }
+
+  .hero-inner {
+    padding: 0 20px;
+  }
+
+  .hero-eyebrow {
+    margin-bottom: 16px;
+    font-size: 10.5px;
+    letter-spacing: 0.2em;
+  }
+
+  .headline {
+    font-size: clamp(30px, 8.4vw, 44px);
+  }
+
+  .sub {
+    margin-top: 20px;
+    font-size: 14px;
+  }
+
+  .hero-cta {
+    margin-top: 26px;
+    height: 42px;
+    padding: 0 24px;
+  }
+
+  /* 分类条从绝对定位改为常规流，随内容排布不再溢出 */
+  .strip {
+    position: static;
+    transform: none;
+    margin-top: 40px;
+    gap: 22px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .sections {
+    padding: 0 20px;
+  }
+
+  .category {
+    padding-top: 64px;
+    scroll-margin-top: 72px;
+  }
+
+  .category-header {
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+}
+
+@media (max-width: 400px) {
+  .hero {
+    padding: 76px 0 40px;
+  }
+
+  .headline {
+    font-size: 30px;
+  }
+
+  .strip-item {
+    font-size: 13.5px;
+  }
+
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tool-card {
+    padding: 14px;
+  }
+}
+
 /* ===== 入场动画（源规范时序：.02/.06/.14/.22/.34 交错）===== */
 @media (prefers-reduced-motion: no-preference) {
   .hero-plate {
@@ -426,6 +552,10 @@ function openTool(tool: Tool) {
 
   .sub {
     animation: rise 0.9s 0.14s var(--ease) both;
+  }
+
+  .hero-cta {
+    animation: rise 0.9s 0.2s var(--ease) both;
   }
 
   .strip-item {

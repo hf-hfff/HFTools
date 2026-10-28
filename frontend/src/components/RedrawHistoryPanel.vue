@@ -237,7 +237,7 @@ async function clearAll() {
 }
 
 .mini-btn.danger {
-  color: #f2b8b5;
+  color: var(--danger-soft);
   border-color: rgba(242, 184, 181, 0.3);
 }
 
@@ -343,6 +343,6 @@ async function clearAll() {
 .hist-note {
   margin: 16px 0 0;
   font-size: 11.5px;
-  color: #64646a;
+  color: var(--ink-3);
 }
 </style>

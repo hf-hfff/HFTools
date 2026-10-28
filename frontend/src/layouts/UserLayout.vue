@@ -41,18 +41,21 @@ const NAV_SECTIONS = [
 <style scoped>
 .user-layout {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
 
-/* ===== 顶栏：固定 + 毛玻璃（源 topbar 实况）===== */
+/* ===== 顶栏：固定 + 毛玻璃（源 topbar 实况）=====
+   三元素用同一套 grid 轨道，避免绝对定位在窄屏互相压字 */
 .topbar {
   position: fixed;
   inset: 0 0 auto 0;
   z-index: 50;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
+  gap: 16px;
   height: 64px;
   padding: 0 clamp(20px, 4vw, 44px);
   background: rgba(5, 5, 5, 0.66);
@@ -65,6 +68,7 @@ const NAV_SECTIONS = [
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  justify-self: start;
   cursor: pointer;
   user-select: none;
 }
@@ -89,12 +93,9 @@ const NAV_SECTIONS = [
   color: var(--ink);
 }
 
-/* 中部锚点导航（源 links 居中实况） */
+/* 中部锚点导航：参与 grid 居中轨道，不再脱离文档流 */
 .topnav {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  justify-self: center;
   display: flex;
   gap: clamp(20px, 2.4vw, 34px);
 }
@@ -109,6 +110,10 @@ const NAV_SECTIONS = [
 
 .topnav-link:hover {
   color: var(--ink);
+}
+
+.topbar .pill-nav {
+  justify-self: end;
 }
 
 /* ===== 内容区 ===== */
@@ -136,7 +141,54 @@ const NAV_SECTIONS = [
 .foot-sub {
   margin: 8px 0 0;
   font-size: 12.5px;
-  color: #5f5f5f;
+  color: var(--ink-3);
+}
+
+/* ===== 响应式：窄屏收起中部导航，避免与品牌 / 管理入口挤在一行 ===== */
+@media (max-width: 560px) {
+  .topbar {
+    gap: 10px;
+    padding: 0 16px;
+  }
+
+  .topnav {
+    display: none;
+  }
+
+  .brand-name {
+    font-size: 15px;
+  }
+
+  .user-footer {
+    padding: 32px 20px 40px;
+  }
+}
+
+@media (max-width: 400px) {
+  .brand {
+    gap: 8px;
+  }
+
+  .brand-mark {
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+  }
+
+  .brand-name {
+    font-size: 14.5px;
+  }
+
+  .topbar .pill-nav {
+    height: 32px;
+    padding: 0 13px;
+    font-size: 12.5px;
+  }
+
+  .foot-meta {
+    font-size: 10.5px;
+    letter-spacing: 0.18em;
+  }
 }
 
 /* ===== 入场动画（源规范时序）===== */
@@ -146,7 +198,7 @@ const NAV_SECTIONS = [
   }
 
   .topnav {
-    animation: riseNav 0.8s var(--ease) both;
+    animation: rise 0.8s var(--ease) both;
   }
 
   .topbar .pill-nav {

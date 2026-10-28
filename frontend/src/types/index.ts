@@ -8,6 +8,9 @@ export interface ApiResponse<T> {
 /** 工具分类：摄影 / AI 工程 / 求职 */
 export type ToolCategory = 'photography' | 'ai-eng' | 'job';
 
+/** 工具实现状态：active = 已上线，placeholder = 开发中（与后端种子取值一致） */
+export type ToolStatus = 'active' | 'placeholder';
+
 /** 工具元数据（与后端 tools 表结构一致，enabled 已转为布尔值） */
 export interface Tool {
   id: string;
@@ -18,7 +21,7 @@ export interface Tool {
   icon: string;
   enabled: boolean;
   /** 实现状态：placeholder = 未实现（开发中） */
-  status: string;
+  status: ToolStatus;
   sort_order: number;
 }
 

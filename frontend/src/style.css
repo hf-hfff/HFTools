@@ -15,9 +15,15 @@
   font-display: swap;
 }
 
-/* ===== 全局设计令牌（Dark Cinematic Style Guide）===== */
+/* ===== 全局设计令牌（Dark Cinematic Style Guide）=====
+   断点约定（全站唯一来源，勿再自造）：
+     1024px —— 桌面双栏退为单栏
+      880px —— 工具页左输入 / 右结果堆叠
+      640px —— 首页 / 布局进入紧凑版
+      560px —— 顶栏收起中部导航
+*/
 :root {
-  /* 源规范色板：纯黑舞台 + 近白墨色，严格单色 */
+  /* 源规范色板：纯黑舞台 + 近白墨色 */
   --ink: #fafafa;
   --muted: #a7a6a6;
   --nav: #b6b5b5;
@@ -27,6 +33,34 @@
   --bg3: #111111;
   --rule: rgba(255, 255, 255, 0.085);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* 语义色：唯一来源，禁止再散落十六进制 */
+  --success: #9fdcae;
+  --danger: #f56c6c;
+  /* 危险 / 禁止项的柔和前景（原 #f2b8b5 与 #f3b3b3 两个值合并） */
+  --danger-soft: #f2b8b5;
+  --warning: #e6a23c;
+  /* 最弱一级正文 / 说明文字：对 --bg2 约 5.5:1，满足 WCAG AA */
+  --ink-3: #8a8a8f;
+
+  /* 圆角三档（原 13 种收敛） */
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-pill: 999px;
+
+  /* 字号阶梯 */
+  --text-xs: 11.5px;
+  --text-sm: 12.5px;
+  --text-base: 14px;
+  --text-md: 15.5px;
+  --text-lg: 18px;
+
+  /* 间距（4 的倍数） */
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
 
   /* 等宽字体（眉题/编号/元信息），GeistMono 未安装时回退 */
   --mono: 'GeistMono', 'Cascadia Code', Consolas, ui-monospace, monospace;
@@ -47,6 +81,12 @@
 
 html {
   scroll-behavior: smooth;
+}
+
+/* 深色页面避免 Windows 系统浅灰滚动条（仅在用户端生效，管理端保持浅色） */
+html:has(.user-layout) {
+  color-scheme: dark;
+  scrollbar-color: rgba(255, 255, 255, 0.18) var(--bg);
 }
 
 body {
@@ -70,6 +110,7 @@ body {
 
 #app {
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* ===== 用户端通用组件（白胶囊 / 幽灵链接）===== */
@@ -99,11 +140,55 @@ body {
   opacity: 0.9;
 }
 
+/* 管理入口是次要动作：降为幽灵描边，不与页面主 CTA 抢视觉重量 */
 .user-layout .pill-nav {
-  height: 40px;
-  min-width: 104px;
-  padding: 0 22px;
-  font-size: 14px;
+  height: 36px;
+  min-width: 0;
+  padding: 0 18px;
+  font-size: 13.5px;
+  color: var(--nav);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  transition:
+    background 0.25s var(--ease),
+    border-color 0.25s var(--ease),
+    color 0.25s var(--ease);
+}
+
+.user-layout .pill-nav:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--ink);
+  opacity: 1;
+}
+
+/* 返回工具箱同理：描边按钮，把白色实心胶囊留给页面主 CTA */
+.user-layout .back-btn {
+  height: 34px;
+  min-width: 0;
+  padding: 0 16px;
+  font-size: 12.5px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  transition:
+    background 0.25s var(--ease),
+    border-color 0.25s var(--ease);
+}
+
+.user-layout .back-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+  opacity: 1;
+}
+
+/* ===== 键盘焦点：全站统一可见（WCAG 2.4.7）=====
+   自定义按钮一律不要写 outline: none，交给这一条兜底 */
+.user-layout :focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
 
 .user-layout .ghost {
@@ -183,6 +268,11 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* 平滑滚动属于动效，与全局降级策略保持一致 */
+  html {
+    scroll-behavior: auto;
+  }
+
   *,
   *::before,
   *::after {

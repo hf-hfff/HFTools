@@ -382,7 +382,7 @@ function formatTime(value: string | null): string {
 
 .card-desc {
   font-size: 12px;
-  color: #909399;
+  color: #6b6b73;
 }
 
 .requirement-notice {
@@ -414,7 +414,7 @@ function formatTime(value: string | null): string {
   margin-left: 8px;
   font-size: 12px;
   font-weight: 400;
-  color: #909399;
+  color: #6b6b73;
 }
 
 .form-footer {
@@ -455,7 +455,7 @@ function formatTime(value: string | null): string {
   margin-left: 12px;
   font-size: 12px;
   font-weight: 400;
-  color: #909399;
+  color: #6b6b73;
 }
 
 .panel-actions {
@@ -478,7 +478,7 @@ function formatTime(value: string | null): string {
 
 .legend-text {
   font-size: 12px;
-  color: #909399;
+  color: #6b6b73;
 }
 
 .model-tags {
@@ -507,6 +507,6 @@ function formatTime(value: string | null): string {
 .model-empty {
   padding: 8px 2px;
   font-size: 13px;
-  color: #909399;
+  color: #6b6b73;
 }
 </style>

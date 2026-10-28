@@ -230,7 +230,7 @@ function removeImage() {
 }
 
 .mini-btn.danger {
-  color: #f2b8b5;
+  color: var(--danger-soft);
   border-color: rgba(242, 184, 181, 0.3);
 }
 </style>

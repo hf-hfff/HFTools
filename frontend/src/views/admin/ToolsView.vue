@@ -28,9 +28,9 @@ function categoryLabel(category: string): string {
   return CATEGORY_LABELS[category as ToolCategory] ?? category;
 }
 
-/** 状态转文案 */
-function statusLabel(status: string): string {
-  return status === 'placeholder' ? '开发中' : status;
+/** 状态转文案（此前 active 会直接回显英文原值） */
+function statusLabel(status: Tool['status']): string {
+  return status === 'active' ? '已上线' : '开发中';
 }
 
 /** 切换启用状态：成功提示并使首页缓存失效；失败回滚开关 */
@@ -104,7 +104,7 @@ async function onSwitchChange(tool: Tool, newVal: boolean | string | number) {
 
 .header-tip {
   font-size: 12px;
-  color: #909399;
+  color: #6b6b73;
   font-weight: normal;
 }
 

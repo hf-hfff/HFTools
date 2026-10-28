@@ -3,6 +3,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { Camera, Picture } from '@element-plus/icons-vue';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { reviewPhoto } from '@/api/ai';
@@ -81,8 +82,8 @@ onMounted(async () => {
     }, 3000);
   }
   try {
-    // 直接通过 URL 访问时工具列表可能尚未加载
-    await toolsStore.fetchTools(true);
+    // 直接通过 URL 访问时工具列表可能尚未加载；store 已有数据则直接复用
+    await toolsStore.fetchTools();
   } catch {
     // 错误提示已由 axios 拦截器统一处理
   } finally {
@@ -116,12 +117,15 @@ onUnmounted(() => {
   clearInterval(spotlightTimer);
 });
 
-/** 拍摄描述字数（上限 500，与后端一致） */
+/** 拍摄描述字数（上限 500，与后端一致）；超限不再静默截断，改为红字提示 + 禁用提交 */
 const NOTE_MAX = 500;
 const noteCount = computed(() => note.value.trim().length);
+const noteOver = computed(() => noteCount.value > NOTE_MAX);
 
 /** 提交按钮可用态 */
-const canSubmit = computed(() => imageDataUrl.value !== '' && !submitting.value);
+const canSubmit = computed(
+  () => imageDataUrl.value !== '' && !noteOver.value && !submitting.value,
+);
 
 /**
  * marked 按 CommonMark 边界规则，「**加粗。**紧跟中文」不渲染成 strong（LLM 常见输出），
@@ -249,7 +253,7 @@ async function submit() {
 
       <div class="tool-header">
         <span class="tool-icon"><ToolIcon :name="tool.icon" /></span>
-        <h2 class="tool-title">{{ tool.name }}</h2>
+        <h1 class="tool-title">{{ tool.name }}</h1>
         <button class="pill back-btn" @click="router.push('/')">← 返回工具箱</button>
       </div>
 
@@ -267,7 +271,7 @@ async function submit() {
             @dragover.prevent
             @drop.prevent="onDrop"
           >
-            <p class="dz-icon">📷</p>
+            <el-icon class="dz-icon" aria-hidden="true"><Camera /></el-icon>
             <p class="dz-title">点击或拖入照片</p>
             <p class="dz-desc">jpg / png / webp，不超过 8MB，一次一张</p>
             <input
@@ -295,11 +299,11 @@ async function submit() {
               id="note-input"
               v-model="note"
               class="note-input"
-              :maxlength="NOTE_MAX"
+              :class="{ over: noteOver }"
               rows="3"
               placeholder="拍的是什么？当时想表达什么？有什么背景？"
             ></textarea>
-            <p class="note-count">{{ noteCount }} / {{ NOTE_MAX }}</p>
+            <p class="note-count" :class="{ over: noteOver }">{{ noteCount }} / {{ NOTE_MAX }}</p>
           </div>
 
           <button class="submit-btn" :disabled="!canSubmit" @click="submit">
@@ -314,16 +318,20 @@ async function submit() {
         <!-- 右列：点评结果 -->
         <section class="result-panel" :class="{ filled: reviewHtml !== '' }">
           <div v-if="reviewHtml === ''" class="result-empty">
-            <!-- 等待态：拍立得卡片晃动 + 轮播文案 + 计时 -->
+            <!-- 等待态：拍立得卡片晃动 + 轮播文案 + 计时；只播报阶段切换，秒数对读屏隐藏 -->
             <template v-if="submitting">
               <div class="developing" aria-hidden="true">
                 <span v-for="n in 3" :key="n" class="polaroid"></span>
               </div>
-              <p class="re-title">{{ FUN_STATUS[funStatusIndex] }}</p>
-              <p class="re-desc">已等待 {{ elapsed }} 秒 · 超时上限 {{ REVIEW_TIMEOUT_S }} 秒</p>
+              <div role="status" aria-live="polite">
+                <p class="re-title">{{ FUN_STATUS[funStatusIndex] }}</p>
+                <p class="re-desc" aria-hidden="true">
+                  已等待 {{ elapsed }} 秒 · 超时上限 {{ REVIEW_TIMEOUT_S }} 秒
+                </p>
+              </div>
             </template>
             <template v-else>
-              <p class="re-icon">🎞️</p>
+              <el-icon class="re-icon" aria-hidden="true"><Picture /></el-icon>
               <p class="re-title">点评会出现在这里</p>
               <p class="re-desc">上传照片后提交，等博主开麦</p>
             </template>
@@ -359,6 +367,7 @@ async function submit() {
   position: relative;
   z-index: 1;
   min-height: calc(100vh - 64px);
+  min-height: calc(100dvh - 64px);
   max-width: 1060px;
   margin: 0 auto;
   padding: clamp(16px, 2.667vh, 32px) clamp(20px, 4vw, 40px);
@@ -397,13 +406,19 @@ async function submit() {
   transform: scale(1.06);
 }
 
-/* 蒙层：黑色遮罩 + 中心 vignette，压到可辨认照片但保内容可读 */
+/* 蒙层：中心强压暗 + 边缘 vignette。
+   原版中心是不透明的 0，聚光灯提亮时正文直接压在亮照片上无法辨认 */
 .wall-veil {
   position: absolute;
   inset: 0;
   z-index: 50;
   background:
-    radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.35) 100%),
+    radial-gradient(
+      ellipse 82% 68% at 50% 42%,
+      rgba(3, 3, 5, 0.88) 0%,
+      rgba(3, 3, 5, 0.7) 52%,
+      rgba(3, 3, 5, 0.38) 100%
+    ),
     rgba(3, 3, 5, 0.5);
 }
 
@@ -415,13 +430,17 @@ async function submit() {
   }
 }
 
+/* 正文压在照片上：提亮字色 + 双层阴影兜底 */
 .crumb {
   margin: 0 0 26px;
   font-family: var(--mono);
   font-size: 11.5px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--strip);
+  color: rgba(250, 250, 250, 0.74);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.9),
+    0 2px 14px rgba(0, 0, 0, 0.8);
 }
 
 .tool-header {
@@ -449,9 +468,12 @@ async function submit() {
   font-weight: 300;
   letter-spacing: 0.01em;
   color: var(--ink);
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.7),
+    0 12px 46px rgba(0, 0, 0, 0.9);
 }
 
-/* ===== 返回工具箱按钮（复用全局 pill，压缩尺寸）===== */
+/* ===== 返回工具箱按钮（走全局描边样式，仅压缩尺寸）===== */
 .back-btn {
   margin-left: auto;
   height: 38px;
@@ -459,6 +481,36 @@ async function submit() {
   padding: 0 18px;
   font-size: 13.5px;
   cursor: pointer;
+}
+
+/* 窄屏：单行放不下时就地收小，标题超长走省略号 */
+@media (max-width: 560px) {
+  .tool-header {
+    gap: 10px 12px;
+    margin-bottom: 28px;
+  }
+
+  .tool-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    font-size: 22px;
+  }
+
+  .tool-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .back-btn {
+    height: 32px;
+    padding: 0 12px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
 }
 
 /* ===== 双栏布局 ===== */
@@ -495,16 +547,25 @@ async function submit() {
   transition: border-color 0.25s var(--ease), background 0.25s var(--ease);
 }
 
-.dropzone:hover,
-.dropzone:focus-visible {
+.dropzone:hover {
   border-color: rgba(255, 255, 255, 0.5);
   background: rgba(255, 255, 255, 0.03);
-  outline: none;
 }
 
+/* 焦点环交给全局 :focus-visible 提供，此处只加强边框辅助 */
+.dropzone:focus-visible {
+  border-color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* 线性图标：与 ToolIcon 同族，替换彩色 emoji */
 .dz-icon {
-  margin: 0 0 10px;
+  display: block;
+  margin: 0 auto 10px;
+  width: 30px;
+  height: 30px;
   font-size: 30px;
+  color: var(--strip);
 }
 
 .dz-title {
@@ -591,8 +652,8 @@ async function submit() {
   font-family: inherit;
 }
 
+/* 只改边框，不吞掉全局焦点环 */
 .note-input:focus {
-  outline: none;
   border-color: rgba(255, 255, 255, 0.4);
 }
 
@@ -602,6 +663,15 @@ async function submit() {
   font-family: var(--mono);
   font-size: 11.5px;
   color: var(--muted);
+}
+
+/* 超 500 字：描边与计数转红，提交同步禁用（与其他三个工具一致） */
+.note-input.over {
+  border-color: rgba(245, 108, 108, 0.65);
+}
+
+.note-count.over {
+  color: var(--danger);
 }
 
 /* ===== 提交按钮 ===== */
@@ -669,9 +739,13 @@ async function submit() {
 }
 
 .re-icon {
-  margin: 0 0 12px;
+  display: block;
+  margin: 0 auto 12px;
+  width: 30px;
+  height: 30px;
   font-size: 30px;
-  opacity: 0.7;
+  color: var(--strip);
+  opacity: 0.8;
 }
 
 .re-title {

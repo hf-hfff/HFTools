@@ -33,7 +33,8 @@ const loadingTools = ref(true);
 
 onMounted(async () => {
   try {
-    await toolsStore.fetchTools(true);
+    // store 已有数据则直接复用，避免每个工具页重复 GET
+    await toolsStore.fetchTools();
   } catch {
     // 错误提示已由 axios 拦截器统一处理
   } finally {
@@ -299,7 +300,7 @@ function reuseFromHistory(text: string) {
         <header class="tool-header">
           <span class="tool-icon"><ToolIcon :name="tool.icon" /></span>
           <div class="title-wrap">
-            <h2 class="tool-title">{{ tool.name }}</h2>
+            <h1 class="tool-title">{{ tool.name }}</h1>
             <p class="tool-sub">模板驱动的创意重绘 · 保留原图内容，重塑画面风格</p>
           </div>
           <button class="pill back-btn" @click="router.push('/')">← 返回工具箱</button>
@@ -442,6 +443,7 @@ function reuseFromHistory(text: string) {
   position: relative;
   z-index: 2;
   min-height: calc(100vh - 64px);
+  min-height: calc(100dvh - 64px);
   max-width: 1060px;
   margin: 0 auto;
   padding: clamp(16px, 2.667vh, 32px) clamp(20px, 4vw, 40px);
@@ -577,7 +579,7 @@ function reuseFromHistory(text: string) {
 }
 
 .panel-hint.over {
-  color: #f2b8b5;
+  color: var(--danger-soft);
 }
 
 .mono {
@@ -612,30 +614,22 @@ function reuseFromHistory(text: string) {
     font-size: 22px;
   }
 
-  .tool-header .back-btn {
-    height: 32px;
-    padding: 0 12px;
-    font-size: 12px;
-  }
-}
-
-/* 窄屏：图标与返回按钮都要收小，否则一行放不下大标题 */
-@media (max-width: 560px) {
-  .tool-header {
-    gap: 12px;
+  .title-wrap {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
-  .tool-icon {
-    width: 46px;
-    height: 46px;
-    border-radius: 12px;
-    font-size: 22px;
+  .tool-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .tool-header .back-btn {
     height: 32px;
     padding: 0 12px;
     font-size: 12px;
+    white-space: nowrap;
   }
 }
 
@@ -651,7 +645,6 @@ function reuseFromHistory(text: string) {
   font-size: 14px;
   line-height: 1.75;
   resize: vertical;
-  outline: none;
   transition: border-color 0.25s var(--ease);
 }
 
@@ -664,7 +657,7 @@ function reuseFromHistory(text: string) {
 }
 
 .prompt-input::placeholder {
-  color: #5c5c60;
+  color: var(--ink-3);
 }
 
 .edit-note {
@@ -760,7 +753,7 @@ function reuseFromHistory(text: string) {
 }
 
 .submit-hint.over {
-  color: #f2b8b5;
+  color: var(--danger-soft);
 }
 
 .progress-block {
@@ -843,7 +836,7 @@ function reuseFromHistory(text: string) {
 .disclaimer {
   margin: 14px 0 0;
   font-size: 11.5px;
-  color: #64646a;
+  color: var(--ink-3);
 }
 
 .error-msg {

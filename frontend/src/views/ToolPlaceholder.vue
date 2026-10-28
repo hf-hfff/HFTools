@@ -13,7 +13,7 @@ const loading = ref(true);
 onMounted(async () => {
   try {
     // 直接通过 URL 访问时工具列表可能尚未加载
-    await toolsStore.fetchTools(true);
+    await toolsStore.fetchTools();
   } catch {
     // 错误提示已由 axios 拦截器统一处理
   } finally {
@@ -33,7 +33,7 @@ const tool = computed(() => toolsStore.tools.find((t) => t.id === toolId.value))
 
       <div class="tool-header">
         <span class="tool-icon"><ToolIcon :name="tool.icon" /></span>
-        <h2 class="tool-title">{{ tool.name }}</h2>
+        <h1 class="tool-title">{{ tool.name }}</h1>
       </div>
 
       <!-- 未实现的工具统一展示开发中占位 -->
@@ -60,6 +60,7 @@ const tool = computed(() => toolsStore.tools.find((t) => t.id === toolId.value))
 <style scoped>
 .tool-page {
   min-height: calc(100vh - 64px);
+  min-height: calc(100dvh - 64px);
   max-width: 1060px;
   margin: 0 auto;
   padding: clamp(16px, 2.667vh, 32px) clamp(20px, 4vw, 40px);

@@ -105,7 +105,8 @@ async function handleLogin() {
 }
 
 .login-card {
-  width: 380px;
+  /* 375px 视口下不再横向溢出 */
+  width: min(380px, calc(100vw - 32px));
   padding: 8px 4px;
   border-radius: 16px;
   border: none;

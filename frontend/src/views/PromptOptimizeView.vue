@@ -3,6 +3,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { EditPen } from '@element-plus/icons-vue';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { optimizePrompt } from '@/api/ai';
@@ -125,8 +126,8 @@ onMounted(async () => {
   reducedMotion.addEventListener('change', syncBackgroundVideo);
   syncBackgroundVideo();
   try {
-    // 直接通过 URL 访问时工具列表可能尚未加载
-    await toolsStore.fetchTools(true);
+    // 直接通过 URL 访问时工具列表可能尚未加载；store 已有数据则直接复用
+    await toolsStore.fetchTools();
   } catch {
     // 错误提示已由 axios 拦截器统一处理
   } finally {
@@ -324,7 +325,7 @@ function downloadResult() {
 
       <div class="tool-header">
         <span class="tool-icon"><ToolIcon :name="tool.icon" /></span>
-        <h2 class="tool-title">{{ tool.name }}</h2>
+        <h1 class="tool-title">{{ tool.name }}</h1>
         <button class="pill back-btn" @click="router.push('/')">← 返回工具箱</button>
       </div>
 
@@ -440,11 +441,15 @@ function downloadResult() {
                 <span class="assembly-link"></span>
                 <span class="prompt-node prompt-node-output"><i></i><i></i><i></i></span>
               </div>
-              <p class="re-title">{{ FUN_STATUS[funStatusIndex] }}</p>
-              <p class="re-desc">已等待 {{ elapsed }} 秒 · 超时上限 {{ OPTIMIZE_TIMEOUT_S }} 秒</p>
+              <div role="status" aria-live="polite">
+                <p class="re-title">{{ FUN_STATUS[funStatusIndex] }}</p>
+                <p class="re-desc" aria-hidden="true">
+                  已等待 {{ elapsed }} 秒 · 超时上限 {{ OPTIMIZE_TIMEOUT_S }} 秒
+                </p>
+              </div>
             </template>
             <template v-else>
-              <p class="re-icon">✒️</p>
+              <el-icon class="re-icon" aria-hidden="true"><EditPen /></el-icon>
               <p class="re-title">优化结果会出现在这里</p>
               <p class="re-desc">输入草稿提示词，或点一个快速开始示例</p>
             </template>
@@ -556,7 +561,7 @@ function downloadResult() {
   color: var(--ink);
 }
 
-/* ===== 返回工具箱按钮（复用全局 pill，压缩尺寸）===== */
+/* ===== 返回工具箱按钮（走全局描边样式，仅压缩尺寸）===== */
 .back-btn {
   margin-left: auto;
   height: 38px;
@@ -564,6 +569,36 @@ function downloadResult() {
   padding: 0 18px;
   font-size: 13.5px;
   cursor: pointer;
+}
+
+/* 窄屏：单行放不下时就地收小，标题超长走省略号 */
+@media (max-width: 560px) {
+  .tool-header {
+    gap: 10px 12px;
+    margin-bottom: 28px;
+  }
+
+  .tool-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    font-size: 22px;
+  }
+
+  .tool-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .back-btn {
+    height: 32px;
+    padding: 0 12px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
 }
 
 /* ===== 双栏布局 ===== */
@@ -810,8 +845,8 @@ function downloadResult() {
   font-family: inherit;
 }
 
+/* 只改边框，不吞掉全局焦点环 */
 .draft-input:focus {
-  outline: none;
   border-color: rgba(255, 255, 255, 0.4);
 }
 
@@ -824,7 +859,7 @@ function downloadResult() {
 }
 
 .draft-count.over {
-  color: #e0715e;
+  color: var(--danger);
 }
 
 /* ===== 提交按钮 ===== */
@@ -895,9 +930,13 @@ function downloadResult() {
 }
 
 .re-icon {
-  margin: 0 0 12px;
+  display: block;
+  margin: 0 auto 12px;
+  width: 30px;
+  height: 30px;
   font-size: 30px;
-  opacity: 0.7;
+  color: var(--strip);
+  opacity: 0.8;
 }
 
 .re-title {
