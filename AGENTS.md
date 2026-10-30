@@ -21,7 +21,7 @@
 ### 2.3 架构与硬约束
 
 - **形态**：monorepo —— `frontend`（Vue3 + Vite + Pinia + Element Plus）/ `server-node`（Express + SQLite 网关）/ `worker-python`（预留）。compose 起前端 8080（nginx 托管 + `/api`、`/static` 反代）与网关 3001（卷 `server-node/data`）；开发态 5173 / 3001。
-- **接口契约**：统一 `{ code, message, data }`；成功 `sendOk()`，业务错误抛 `ApiError(status, code, message)` 交全局 errorHandler；async 路由必须 `try/catch → next(err)`；含 base64 图片的接口在全局 `express.json()` 之前单独放宽 `12mb`；具体 AI 路由必须注册在通用 `/api/ai/:task` 之前。
+- **接口契约**：统一 `{ code, message, data }`；成功 `sendOk()`，业务错误抛 `ApiError(status, code, message)` 交全局 errorHandler；async 路由必须 `try/catch → next(err)`；含 base64 图片的 AI 接口在全局 `express.json()` 之前单独放宽 `30mb`（模板示例图仍 `12mb`），单张原图上限统一 **20MB**；具体 AI 路由必须注册在通用 `/api/ai/:task` 之前。
 - **路由分区**：`/api/tools`（公开，仅启用工具）、`/api/admin/*`（JWT，login 除外）、`/api/ai/*`、`/api/redraw/*`（公开）。
 - **数据**：SQLite `tools` / `model_config`（单行 `id=1`）/ `admin_users` / `redraw_templates`+`redraw_template_previews`+`redraw_history`（只存图片相对路径）；建表与迁移幂等（`PRAGMA user_version`）；首启无管理员时建 `admin / admin123`；旧表 `model_configs` 只读保留。
 - **文件存储**：重绘图落 `server-node/data/redraw/`，经 `/api/redraw/files/:kind/:name` 只读提供（kind + 文件名白名单 + `resolveDataPath` 前缀校验防穿越）；历史按 100 条 / 2GB 双上限清理。
@@ -47,6 +47,8 @@
 | 2026-10-28 | 前端二期 B | 背景视频本地化：13.86MB 境外 CDN 片源自托管到 `public/videos`（720p 262KB / 540p 89KB / 海报 70KB），`preload=none` + `poster` + JS 仅在 ≥900px 且非减动效时播放；`scripts/media-video.mjs` 可复现转码；闸门零差异、7 页无控制台错误 |
 | 2026-10-28 | 前端二期收尾 | `scripts/check-budget.mjs` 接入 build（首屏 JS 250KB / CSS 80KB、全量 JS 900KB / CSS 350KB、图片 900KB，超预算即失败）；全量验收 31 项通过（7 页×3 档无横向溢出/页头单行、79 个焦点环无缺失、减动效 0 媒体请求、断网 0 外部请求）；补管理端 EP 输入框/按钮焦点环；`gate` 零差异 |
 | 2026-10-28 | 首页 CTA 与照片墙调亮 | 按用户要求删除首页「浏览工具」CTA（`hero-inner` 高度 −80，文案整体下移 40）；照片墙提亮：照片 `brightness 0.45→0.62`、蒙层中心 `0.88→0.76`／全局 `0.5→0.32`；选中态提到蒙层之上（`z-index 40→60`，配 `brightness 1.08` + 更强白光晕），轮播切换明显；闸门基线重建后零差异 |
+| 2026-10-28 | 上传上限统一 20MB | 照片点评 / 照片AI优化 / 影像AI重绘三处前端 `MAX_SIZE_MB` 与文案、`ImageUploader` 默认值统一为 20MB；后端三路 `IMAGE_MAX_BYTES` 同步、照片点评补 `IMAGE_TOO_LARGE` 校验，`express.json` 从 `12mb` 放宽到 `30mb`（20MB → base64 约 27MB）；实测三条路由 27MB body 均返回 400 `IMAGE_TOO_LARGE`；`tsc --noEmit` 与 `pnpm build`、`gate` 通过 |
+| 2026-10-28 | 重绘下载入口迁移 | 影像AI重绘的「下载图片」从底部操作区移到重绘结果图右上角，改用与照片AI优化同款 `.download-btn`（34×34 图标 + 模糊底 + hover 反白 + `focus-visible` 环 + 减动效关过渡）；底部仅保留「重新生成」；桩响应实测距图边 10/10px |
 
 ### 2.5 常用命令
 

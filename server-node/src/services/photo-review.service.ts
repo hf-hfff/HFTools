@@ -12,6 +12,16 @@ import { ApiError } from '../utils/response.js';
 /** 允许的图片格式（多模态 LLM data URL） */
 const IMAGE_DATA_URL_RE = /^data:image\/(?:jpeg|png|webp);base64,/;
 
+/** 图片解码后最大字节数（20MB，与照片优化/影像重绘统一） */
+const IMAGE_MAX_BYTES = 20 * 1024 * 1024;
+
+/** 估算 data URL base64 载荷解码后的字节数（不含 data URL 前缀） */
+function imageDataUrlBytes(dataUrl: string): number {
+  const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0;
+  return Math.floor((base64.length * 3) / 4) - padding;
+}
+
 /** 用户描述最大长度 */
 const NOTE_MAX_LENGTH = 500;
 
@@ -44,6 +54,9 @@ export async function reviewPhoto(image: unknown, note: unknown): Promise<string
   // ---- 入参校验 ----
   if (typeof image !== 'string' || !IMAGE_DATA_URL_RE.test(image)) {
     throw new ApiError(400, 'INVALID_IMAGE', '图片格式不正确，请上传 jpg/png/webp 图片');
+  }
+  if (imageDataUrlBytes(image) > IMAGE_MAX_BYTES) {
+    throw new ApiError(400, 'IMAGE_TOO_LARGE', '图片过大（最大 20MB），请压缩后重试');
   }
   if (note !== undefined && note !== null && typeof note !== 'string') {
     throw new ApiError(400, 'INVALID_NOTE', '照片描述必须是字符串');

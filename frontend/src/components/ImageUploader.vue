@@ -12,7 +12,7 @@ const props = withDefaults(
     /** 大小上限（MB） */
     maxSizeMb?: number;
   }>(),
-  { fileName: '', disabled: false, maxSizeMb: 8 },
+  { fileName: '', disabled: false, maxSizeMb: 20 },
 );
 
 const emit = defineEmits<{

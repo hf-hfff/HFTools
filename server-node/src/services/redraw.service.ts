@@ -13,8 +13,8 @@ import { enforceCapacity, saveHistory } from './redraw-history.service.js';
 /** 允许的图片 data URL（与照片优化同口径） */
 const IMAGE_DATA_URL_RE = /^data:image\/(?:jpeg|png|webp);base64,/;
 
-/** 原图解码后上限（8MB） */
-const IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+/** 原图解码后上限（20MB，与照片点评/照片优化统一） */
+const IMAGE_MAX_BYTES = 20 * 1024 * 1024;
 
 /** 提示词长度上限（与模板正文一致） */
 const PROMPT_MAX_LENGTH = 10_000;
@@ -25,7 +25,7 @@ const SOURCE_SAVE_OPTIONS: SaveImageOptions = {
   invalidCode: 'INVALID_IMAGE',
   invalidMessage: '图片格式不正确，请上传 jpg/png/webp 图片',
   tooLargeCode: 'IMAGE_TOO_LARGE',
-  tooLargeMessage: '图片过大（最大 8MB），请压缩后重试',
+  tooLargeMessage: '图片过大（最大 20MB），请压缩后重试',
 };
 
 /** 结果图落盘校验参数：上游异常产物不走用户错误码，统一按生成失败处理 */
@@ -61,7 +61,7 @@ function imageDataUrlBytes(dataUrl: string): number {
 
 /**
  * 校验重绘入参（不信任前端）：
- * image 必须是 jpg/png/webp data URL 且解码后 ≤8MB → INVALID_IMAGE / IMAGE_TOO_LARGE
+ * image 必须是 jpg/png/webp data URL 且解码后 ≤20MB → INVALID_IMAGE / IMAGE_TOO_LARGE
  * prompt trim 后 1–10000 字 → EMPTY_PROMPT / PROMPT_TOO_LONG
  * template_id 可选，提供时必须存在 → TEMPLATE_NOT_FOUND
  */
@@ -76,7 +76,7 @@ export function validateRedrawInput(input: unknown): RedrawRequest {
     throw new ApiError(400, 'INVALID_IMAGE', '图片内容为空，请重新上传');
   }
   if (imageDataUrlBytes(image) > IMAGE_MAX_BYTES) {
-    throw new ApiError(400, 'IMAGE_TOO_LARGE', '图片过大（最大 8MB），请压缩后重试');
+    throw new ApiError(400, 'IMAGE_TOO_LARGE', '图片过大（最大 20MB），请压缩后重试');
   }
 
   const promptText = typeof prompt === 'string' ? prompt.trim() : '';

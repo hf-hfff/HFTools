@@ -46,7 +46,7 @@ const {
 
 /** 允许的图片类型与大小上限 */
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const MAX_SIZE_MB = 8;
+const MAX_SIZE_MB = 20;
 
 const fileInput = ref<HTMLInputElement>();
 const imageDataUrl = ref('');
@@ -172,7 +172,7 @@ async function submit() {
           >
             <el-icon class="dz-icon" aria-hidden="true"><Camera /></el-icon>
             <p class="dz-title">点击或拖入照片</p>
-            <p class="dz-desc">jpg / png / webp，不超过 8MB，一次一张</p>
+            <p class="dz-desc">jpg / png / webp，不超过 {{ MAX_SIZE_MB }}MB，一次一张</p>
             <input
               ref="fileInput"
               type="file"

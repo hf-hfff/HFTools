@@ -45,7 +45,7 @@ const DIRECTION_LABELS: Array<{ key: keyof PhotoAnalysis['directions']; label: s
 
 /** 允许的图片类型与大小上限（与后端校验一致） */
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const MAX_SIZE_MB = 8;
+const MAX_SIZE_MB = 20;
 
 /** 优化描述字数上限（与后端 NOTE_MAX_LENGTH 一致） */
 const NOTE_MAX = 500;
@@ -282,7 +282,7 @@ function downloadResult() {
           >
             <el-icon class="dz-icon" aria-hidden="true"><Camera /></el-icon>
             <p class="dz-title">点击或拖入照片</p>
-            <p class="dz-desc">jpg / png / webp，不超过 8MB，一次一张</p>
+            <p class="dz-desc">jpg / png / webp，不超过 {{ MAX_SIZE_MB }}MB，一次一张</p>
             <input
               ref="fileInput"
               type="file"

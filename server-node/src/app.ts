@@ -17,11 +17,10 @@ export function createApp(): express.Express {
   const app = express();
 
   app.use(cors({ origin: CORS_ORIGIN }));
-  // 照片点评/照片AI优化带 base64 图片，须在全局 json 解析之前按路径放宽 body 上限（express.json 跳过已解析请求）
-  app.use('/api/ai/photo-review', express.json({ limit: '12mb' }));
-  app.use('/api/ai/photo-optimize', express.json({ limit: '12mb' }));
-  // 影像 AI 重绘：原图 8MB → base64 约 10.7MB，加 1 万字提示词后 12mb 足够
-  app.use('/api/ai/image-redraw', express.json({ limit: '12mb' }));
+  // 照片点评/照片AI优化/影像重绘统一允许 20MB 原图；20MB → base64 约 27MB，加提示词后 body 上限取 30mb
+  app.use('/api/ai/photo-review', express.json({ limit: '30mb' }));
+  app.use('/api/ai/photo-optimize', express.json({ limit: '30mb' }));
+  app.use('/api/ai/image-redraw', express.json({ limit: '30mb' }));
   // 模板示例图走 base64 上传（单张 5MB → 约 6.7MB）
   app.use('/api/redraw/templates', express.json({ limit: '12mb' }));
   app.use(express.json());

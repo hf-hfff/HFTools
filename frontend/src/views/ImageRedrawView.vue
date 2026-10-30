@@ -383,6 +383,20 @@ function reuseFromHistory(text: string) {
             </figure>
             <figure class="shot">
               <img :src="result.result_url" alt="重绘结果" />
+              <!-- 下载入口：结果图右上角悬浮，与照片AI优化同款（仅图标，名称走 aria-label / title） -->
+              <button
+                class="download-btn"
+                type="button"
+                aria-label="下载生成图"
+                title="下载生成图"
+                @click="downloadResult"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 3.5v11" />
+                  <path d="m7.2 10.2 4.8 4.8 4.8-4.8" />
+                  <path d="M4.5 20.5h15" />
+                </svg>
+              </button>
               <figcaption>重绘结果</figcaption>
             </figure>
           </div>
@@ -391,7 +405,6 @@ function reuseFromHistory(text: string) {
 
           <div class="result-actions">
             <button class="pill" type="button" :disabled="submitting" @click="regenerate">重新生成</button>
-            <button class="mini-btn" type="button" @click="downloadResult">下载图片</button>
           </div>
 
           <p class="disclaimer">
@@ -632,6 +645,7 @@ function reuseFromHistory(text: string) {
 }
 
 .shot {
+  position: relative;
   margin: 0;
 }
 
@@ -653,6 +667,64 @@ function reuseFromHistory(text: string) {
   text-transform: uppercase;
   color: var(--strip);
   text-align: center;
+}
+
+/* ===== 结果图下载：右上角悬浮图标按钮（与照片AI优化同款）===== */
+.download-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(8, 8, 8, 0.58);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: var(--ink);
+  cursor: pointer;
+  /* 常驻极轻投影：保证浅色/白底图上按钮边缘依然清晰 */
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.28),
+    0 4px 12px rgba(0, 0, 0, 0.18);
+  transition:
+    background 0.25s var(--ease),
+    border-color 0.25s var(--ease),
+    color 0.25s var(--ease),
+    box-shadow 0.25s var(--ease),
+    transform 0.25s var(--ease);
+}
+
+.download-btn svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.download-btn:hover {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: transparent;
+  color: #050505;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.22),
+    0 6px 16px rgba(0, 0, 0, 0.26);
+}
+
+.download-btn:active {
+  transform: translateY(1px);
+}
+
+.download-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 2px;
 }
 
 .result-prompt {
@@ -727,6 +799,14 @@ function reuseFromHistory(text: string) {
 @media (prefers-reduced-motion: reduce) {
   .prompt-input {
     transition: none;
+  }
+
+  .download-btn {
+    transition: none;
+  }
+
+  .download-btn:active {
+    transform: none;
   }
 }
 </style>

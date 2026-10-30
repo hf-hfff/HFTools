@@ -73,8 +73,8 @@ export interface PhotoAnalysis {
 /** 允许的图片格式（多模态 LLM data URL） */
 const IMAGE_DATA_URL_RE = /^data:image\/(?:jpeg|png|webp);base64,/;
 
-/** 图片解码后最大字节数（8MB） */
-const IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+/** 图片解码后最大字节数（20MB，与照片点评/影像重绘统一） */
+const IMAGE_MAX_BYTES = 20 * 1024 * 1024;
 
 /** 用户描述最大长度 */
 const NOTE_MAX_LENGTH = 500;
@@ -88,7 +88,7 @@ function imageDataUrlBytes(dataUrl: string): number {
 
 /**
  * 校验并规范化照片 AI 优化入参
- * 图片缺失/格式不符/载荷为空 → INVALID_IMAGE；解码后 >8MB → IMAGE_TOO_LARGE
+ * 图片缺失/格式不符/载荷为空 → INVALID_IMAGE；解码后 >20MB → IMAGE_TOO_LARGE
  * 场景为空或不在白名单 → INVALID_SCENE；描述非字符串 → INVALID_NOTE；描述超长 → NOTE_TOO_LONG
  * @param input 请求体（未信任数据）
  * @returns 规范化输入（note 已 trim，空 note 省略）
@@ -105,7 +105,7 @@ export function validatePhotoOptimizeInput(input: unknown): PhotoOptimizeRequest
     throw new ApiError(400, 'INVALID_IMAGE', '图片内容为空，请重新上传');
   }
   if (imageDataUrlBytes(image) > IMAGE_MAX_BYTES) {
-    throw new ApiError(400, 'IMAGE_TOO_LARGE', '图片过大（最大 8MB），请压缩后重试');
+    throw new ApiError(400, 'IMAGE_TOO_LARGE', '图片过大（最大 20MB），请压缩后重试');
   }
 
   // ---- 场景 ----
